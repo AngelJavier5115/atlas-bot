@@ -12,13 +12,18 @@ http.createServer((req, res) => {
   console.log(`[Atlas] Servidor HTTP activo en puerto ${PORT}`);
 });
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+});
 
 const commands = [
   new SlashCommandBuilder()
@@ -39,7 +44,17 @@ const commands = [
           { name: 'Falsado', value: 'falsado' },
           { name: 'Ruido', value: 'ruido' }
         )
+    ),
+
+  new SlashCommandBuilder()
+    .setName('atlas-consultar')
+    .setDescription('Atlas: Consulta un nodo de la memoria compartida')
+    .addIntegerOption(option =>
+      option.setName('id')
+        .setDescription('ID del nodo a consultar')
+        .setRequired(true)
     )
+
 ].map(cmd => cmd.toJSON());
 
 process.on('unhandledRejection', error => {
@@ -48,29 +63,75 @@ process.on('unhandledRejection', error => {
 
 client.once('ready', async () => {
   console.log(`[Atlas] Bot en línea como: ${client.user.tag}`);
+
   try {
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('[Atlas] Comando /atlas-evaluar registrado exitosamente.');
+    const rest = new REST({ version: '10' })
+      .setToken(process.env.DISCORD_TOKEN);
+
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+
+    console.log('[Atlas] Comandos registrados exitosamente.');
   } catch (e) {
-    console.error('[Atlas] Error al registrar comando:', e);
+    console.error('[Atlas] Error al registrar comandos:', e);
   }
 });
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'atlas-evaluar') return;
+
+  if (
+    interaction.commandName !== 'atlas-evaluar' &&
+    interaction.commandName !== 'atlas-consultar'
+  ) {
+    return;
+  }
 
   try {
     await interaction.deferReply();
 
     const id = interaction.options.getInteger('id');
+
+    // ==========================================
+    // ATLAS-CONSULTAR
+    // ==========================================
+
+    if (interaction.commandName === 'atlas-consultar') {
+
+      const { data: nodo, error } = await supabase
+        .from('investigaciones')
+        .select('id, contenido, estado')
+        .eq('id', id)
+        .single();
+
+      if (error || !nodo) {
+        return await interaction.editReply(
+          `[Atlas] ❌ Nodo #${id} no encontrado.`
+        );
+      }
+
+      return await interaction.editReply(
+        `[Atlas] 🔎 **Nodo #${nodo.id}**\n` +
+        `**Contenido:** ${nodo.contenido}\n` +
+        `**Estado:** ${nodo.estado}`
+      );
+    }
+
+    // ==========================================
+    // ATLAS-EVALUAR
+    // ==========================================
+
     const nuevoEstado = interaction.options.getString('estado');
 
     if (!openai) {
-      return await interaction.editReply('[Atlas] ⚠️ La API Key de OpenAI aún no ha sido configurada.');
+      return await interaction.editReply(
+        '[Atlas] ⚠️ La API Key de OpenAI aún no ha sido configurada.'
+      );
     }
 
+    // Verificar que el nodo existe
     const { data: nodoExistente, error: fetchError } = await supabase
       .from('investigaciones')
       .select('id, contenido, estado')
@@ -78,23 +139,38 @@ client.on('interactionCreate', async interaction => {
       .single();
 
     if (fetchError || !nodoExistente) {
-      return await interaction.editReply(`[Atlas] ❌ Nodo #${id} no encontrado.`);
+      return await interaction.editReply(
+        `[Atlas] ❌ Nodo #${id} no encontrado.`
+      );
     }
 
+    // Actualizar el estado del nodo
     const { error: updateError } = await supabase
       .from('investigaciones')
       .update({ estado: nuevoEstado })
       .eq('id', id);
 
     if (updateError) {
-      console.error('[Atlas] Error al actualizar estado:', updateError);
-      return await interaction.editReply(`[Atlas] ❌ Error al actualizar el nodo #${id}.`);
+      console.error(
+        '[Atlas] Error al actualizar estado:',
+        updateError
+      );
+
+      return await interaction.editReply(
+        `[Atlas] ❌ Error al actualizar el nodo #${id}.`
+      );
     }
 
-    await interaction.editReply(`[Atlas] ✅ Nodo #${id} actualizado a **${nuevoEstado}**.`);
+    await interaction.editReply(
+      `[Atlas] ✅ Nodo #${id} actualizado a **${nuevoEstado}**.`
+    );
+
   } catch (err) {
     console.error('[Atlas] Error en interacción:', err);
-    await interaction.editReply('[Atlas] ❌ Ocurrió un error interno.');
+
+    await interaction.editReply(
+      '[Atlas] ❌ Ocurrió un error interno.'
+    );
   }
 });
 
