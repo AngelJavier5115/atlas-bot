@@ -3,6 +3,7 @@
 
 export async function registrarProduccion(supabase, {
   investigadorId,
+  investigadorNombre = null,
   investigacionId,
   contenido,
   tipo = 'produccion',
@@ -51,10 +52,16 @@ export async function registrarProduccion(supabase, {
     throw new Error(`El investigador ${investigadorId} no participa activamente en ${investigacion.codigo}.`);
   }
 
+  const autor =
+    investigadorNombre ||
+    metadata.investigador ||
+    investigadorId;
+
   const { data: nuevoNodo, error: insertError } = await supabase
     .from('investigaciones')
     .insert([{
       investigador_id: investigadorId,
+      autor,
       contenido: String(contenido).trim(),
       tipo: String(tipo).trim(),
       ref_id: refId,
