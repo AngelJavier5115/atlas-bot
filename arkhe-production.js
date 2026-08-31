@@ -13,8 +13,12 @@ export async function registrarProduccion(supabase, {
     throw new Error('investigadorId es obligatorio.');
   }
 
-  if (!Number.isInteger(investigacionId)) {
-    throw new Error('investigacionId debe ser un entero.');
+  // investigaciones_proyecto.id es UUID, no entero.
+  if (
+    typeof investigacionId !== 'string' ||
+    !investigacionId.trim()
+  ) {
+    throw new Error('investigacionId debe ser un UUID válido.');
   }
 
   if (!contenido || !String(contenido).trim()) {
