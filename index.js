@@ -410,7 +410,8 @@ Devuelve únicamente JSON válido con esta estructura:
         respuesta = await openai.responses.create({
           model: process.env.OPENAI_MODEL || 'gpt-4o',
           instructions: systemPrompt,
-          input: 'Realiza ahora la evaluación epistemológica independiente del nodo indicado.'
+          input: 'Realiza ahora la evaluación epistemológica independiente del nodo indicado.',
+          max_output_tokens: 3000
         });
       } catch (modelError) {
         console.error('[Atlas] Error del motor durante evaluación:', modelError);
