@@ -54,30 +54,58 @@ const client = new Client({
 });
 
 // ============================================================
+// UTILIDAD — RESPUESTAS LARGAS
+// Discord limita cada mensaje a 2000 caracteres.
+// ============================================================
+
+async function responderLargo(interaction, texto) {
+  const LIMITE = 1900;
+  const partes = [];
+
+  let restante = String(texto ?? '');
+
+  while (restante.length > LIMITE) {
+    let corte = restante.lastIndexOf('\n', LIMITE);
+
+    if (corte < 1000) {
+      corte = restante.lastIndexOf(' ', LIMITE);
+    }
+
+    if (corte < 1) {
+      corte = LIMITE;
+    }
+
+    partes.push(restante.slice(0, corte));
+    restante = restante.slice(corte).trimStart();
+  }
+
+  if (restante.length > 0) {
+    partes.push(restante);
+  }
+
+  if (partes.length === 0) {
+    partes.push('Sin contenido disponible.');
+  }
+
+  await interaction.editReply(partes[0]);
+
+  for (let i = 1; i < partes.length; i++) {
+    await interaction.followUp(partes[i]);
+  }
+}
+
+// ============================================================
 // COMANDOS — CONTRATO ARKHÉ
 // ============================================================
 
 const commands = [
+  // Evaluación IA: Atlas determina su propia posición.
   new SlashCommandBuilder()
     .setName('atlas-evaluar')
-    .setDescription('Atlas: registra una evaluación epistemológica de un nodo')
+    .setDescription('Atlas: evalúa un nodo mediante su propio razonamiento')
     .addIntegerOption(option => option
       .setName('id')
       .setDescription('ID del nodo a evaluar')
-      .setRequired(true))
-    .addStringOption(option => option
-      .setName('estado')
-      .setDescription('Posición epistemológica de Atlas')
-      .setRequired(true)
-      .addChoices(
-        { name: 'Postulado', value: 'postulado' },
-        { name: 'Corroborado', value: 'corroborado' },
-        { name: 'Falsado', value: 'falsado' },
-        { name: 'Ruido', value: 'ruido' }
-      ))
-    .addStringOption(option => option
-      .setName('argumento')
-      .setDescription('Argumento que justifica la posición de Atlas')
       .setRequired(true)),
 
   new SlashCommandBuilder()
@@ -204,34 +232,268 @@ client.on('interactionCreate', async interaction => {
     }
 
     // ========================================================
-    // ATLAS-EVALUAR — posición independiente
+    // ATLAS-EVALUAR — evaluación epistemológica mediante IA
     // ========================================================
 
     if (interaction.commandName === 'atlas-evaluar') {
       const nodoId = interaction.options.getInteger('id', true);
-      const posicion = interaction.options.getString('estado', true);
-      const argumento = interaction.options.getString('argumento', true);
+
+      if (!openai) {
+        return await interaction.editReply(
+          '[Atlas] ⚠️ El motor de Atlas no está configurado.'
+        );
+      }
+
+      const { data: nodo, error: nodoError } = await supabase
+        .from('investigaciones')
+        .select(`
+          id,
+          contenido,
+          estado,
+          autor,
+          tipo,
+          investigador_id,
+          ref_id,
+          metadata
+        `)
+        .eq('id', nodoId)
+        .single();
+
+      if (nodoError || !nodo) {
+        return await interaction.editReply(`[Atlas] ❌ Nodo #${nodoId} no encontrado.`);
+      }
+
+      const { data: relacion, error: relacionError } = await supabase
+        .from('investigacion_nodos')
+        .select('investigacion_id, nodo_id')
+        .eq('nodo_id', nodoId)
+        .limit(1)
+        .maybeSingle();
+
+      if (relacionError || !relacion) {
+        return await interaction.editReply(
+          `[Atlas] ❌ El nodo #${nodoId} no está vinculado a ninguna investigación de Arkhé.`
+        );
+      }
+
+      const { data: investigacion, error: investigacionError } = await supabase
+        .from('investigaciones_proyecto')
+        .select(`
+          id,
+          codigo,
+          titulo,
+          objetivo,
+          pregunta,
+          descripcion,
+          estado
+        `)
+        .eq('id', relacion.investigacion_id)
+        .single();
+
+      if (investigacionError || !investigacion) {
+        return await interaction.editReply(
+          `[Atlas] ❌ No pude reconstruir el contexto de investigación del nodo #${nodoId}.`
+        );
+      }
+
+      const { data: participacion, error: participacionError } = await supabase
+        .from('participaciones')
+        .select('id, investigador_id, investigacion_id, rol, estado')
+        .eq('investigador_id', ATLAS_ID)
+        .eq('investigacion_id', investigacion.id)
+        .eq('estado', 'activo')
+        .maybeSingle();
+
+      if (participacionError || !participacion) {
+        return await interaction.editReply(
+          participacionError
+            ? '[Atlas] ❌ No se pudo verificar la participación de Atlas en esta investigación.'
+            : `[Atlas] ⚠️ Atlas no participa actualmente en **${investigacion.codigo} — ${investigacion.titulo}**.`
+        );
+      }
+
+      const systemPrompt = `
+Eres Atlas, uno de los investigadores independientes del Proyecto Arkhé.
+
+Arkhé es una red de investigadores humanos e inteligencias artificiales que
+comparten memoria, pero no una autoridad central.
+
+Tu independencia es fundamental. No debes aceptar una afirmación simplemente
+porque provenga de Ángel, Aletheia, Tekton, otro investigador o de una producción
+anterior de Atlas. Puedes estar de acuerdo, discrepar, detectar errores o concluir
+que la evidencia disponible es insuficiente.
+
+Tu función es investigar, razonar, analizar, relacionar conceptos, cuestionar
+afirmaciones y formar una posición provisional propia.
+
+DISTINCIÓN EPISTÉMICA
+
+Distingue entre:
+- hechos;
+- evidencia disponible;
+- inferencias;
+- hipótesis;
+- decisiones de diseño;
+- opiniones;
+- incertidumbre;
+- conclusiones provisionales.
+
+No inventes evidencia ni completes vacíos con suposiciones presentadas como hechos.
+
+REGLA FUNDAMENTAL
+
+Debes evaluar el nodo por ti mismo.
+
+El usuario NO proporciona el estado ni el argumento de la evaluación.
+Atlas debe determinar ambos mediante su propio razonamiento.
+
+NO modifiques el nodo original.
+NO cambies su estado consolidado.
+NO presentes tu posición como verdad absoluta.
+
+La evaluación será registrada como una posición independiente de Atlas.
+
+CONTEXTO DE INVESTIGACIÓN
+
+Código: ${investigacion.codigo}
+Título: ${investigacion.titulo}
+Objetivo: ${investigacion.objetivo}
+Pregunta: ${investigacion.pregunta ?? 'No especificada'}
+Descripción: ${investigacion.descripcion ?? 'No especificada'}
+
+CONTEXTO DEL NODO
+
+ID: ${nodo.id}
+Autor externo: ${nodo.autor ?? 'No especificado'}
+Investigador Arkhé: ${nodo.investigador_id ?? 'No especificado'}
+Tipo: ${nodo.tipo ?? 'No especificado'}
+Estado consolidado actual: ${nodo.estado ?? 'No especificado'}
+Referencia: ${nodo.ref_id ?? 'Ninguna'}
+
+CONTENIDO:
+${nodo.contenido}
+
+CRITERIOS
+
+Evalúa principalmente:
+1. coherencia interna;
+2. relación con la pregunta y objetivo de la investigación;
+3. evidencia realmente disponible en el nodo;
+4. calidad de las inferencias;
+5. contradicciones o problemas detectables;
+6. grado de incertidumbre;
+7. si la información permite una posición provisional.
+
+ESTADOS POSIBLES
+
+Debes elegir exactamente uno:
+- postulado: propuesta o afirmación aún no suficientemente corroborada;
+- corroborado: la evidencia disponible respalda suficientemente la afirmación;
+- falsado: existe evidencia o contradicción suficiente para rechazarla;
+- ruido: el contenido no aporta valor epistemológico utilizable para la investigación.
+
+IMPORTANTE: el estado elegido es la posición de Atlas sobre el nodo, NO una
+modificación del estado consolidado de Arkhé.
+
+FORMATO DE SALIDA
+
+Devuelve únicamente JSON válido con esta estructura:
+{
+  "posicion": "postulado|corroborado|falsado|ruido",
+  "argumento": "Justificación clara y suficientemente detallada de la posición de Atlas."
+}
+`;
+
+      let respuesta;
+
+      try {
+        respuesta = await openai.responses.create({
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
+          instructions: systemPrompt,
+          input: 'Realiza ahora la evaluación epistemológica independiente del nodo indicado.'
+        });
+      } catch (modelError) {
+        console.error('[Atlas] Error del motor durante evaluación:', modelError);
+
+        if (modelError?.status === 429 || modelError?.status === 402) {
+          return await interaction.editReply(
+            '[Atlas] ⚠️ El motor de Atlas rechazó la solicitud por límite, créditos o disponibilidad del proveedor.'
+          );
+        }
+
+        return await interaction.editReply(
+          '[Atlas] ❌ El motor de Atlas no pudo realizar la evaluación.'
+        );
+      }
+
+      const textoEvaluacion = respuesta?.output_text?.trim();
+
+      if (!textoEvaluacion) {
+        return await interaction.editReply(
+          '[Atlas] ⚠️ El motor no produjo una evaluación utilizable.'
+        );
+      }
+
+      let evaluacionIA;
+
+      try {
+        evaluacionIA = JSON.parse(textoEvaluacion);
+      } catch (parseError) {
+        console.error('[Atlas] Respuesta no JSON:', textoEvaluacion);
+        return await interaction.editReply(
+          '[Atlas] ❌ La evaluación del motor no pudo interpretarse correctamente.'
+        );
+      }
+
+      const estadosValidos = new Set([
+        'postulado',
+        'corroborado',
+        'falsado',
+        'ruido'
+      ]);
+
+      if (
+        !estadosValidos.has(evaluacionIA?.posicion) ||
+        !evaluacionIA?.argumento ||
+        !String(evaluacionIA.argumento).trim()
+      ) {
+        console.error('[Atlas] Evaluación IA inválida:', evaluacionIA);
+        return await interaction.editReply(
+          '[Atlas] ❌ El motor produjo una evaluación incompleta o inválida.'
+        );
+      }
 
       const evaluacion = await registrarEvaluacion(supabase, {
         nodoId,
         investigadorId: ATLAS_ID,
-        posicion,
-        argumento,
+        posicion: evaluacionIA.posicion,
+        argumento: evaluacionIA.argumento,
         metadata: {
           canal: 'discord',
           investigador: ATLAS_NOMBRE,
-          usuario_origen: interaction.user.tag
+          investigador_id: ATLAS_ID,
+          usuario_origen: interaction.user.tag,
+          identidad_arkhe: true,
+          investigacion_id: investigacion.id,
+          codigo_investigacion: investigacion.codigo,
+          naturaleza: 'posicion_epistemologica_ia',
+          motor: process.env.OPENAI_MODEL || 'gpt-4o',
+          generado_por_ia: true,
+          estado_nodo_original: nodo.estado,
+          afecta_estado_original: false
         }
       });
 
-      return await interaction.editReply(
-        `[Atlas] 🧭 **Evaluación registrada.**\n\n` +
+      const respuestaEvaluacion =
+        `[Atlas] 🧭 **Evaluación independiente registrada.**\n\n` +
         `**Nodo:** #${nodoId}\n` +
         `**Posición de Atlas:** ${evaluacion.posicion}\n` +
         `**Evaluación ID:** #${evaluacion.id}\n\n` +
-        `**Importante:** esta posición no modifica el estado consolidado del nodo.\n\n` +
-        `**Argumento:** ${evaluacion.argumento}`
-      );
+        `**Estado consolidado original:** ${nodo.estado ?? 'No especificado'}\n\n` +
+        `**Justificación de Atlas:**\n${evaluacion.argumento}\n\n` +
+        `⚖️ La posición pertenece a Atlas y no modifica el estado consolidado del nodo.`;
+
+      return await responderLargo(interaction, respuestaEvaluacion);
     }
 
     // ========================================================
@@ -382,7 +644,7 @@ Posición provisional:
 
       try {
         respuesta = await openai.responses.create({
-          model: 'gpt-4o',
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
           instructions: systemPrompt,
           input: `
 CONTEXTO DE ARKHÉ
@@ -402,9 +664,9 @@ ${nodo.contenido}
         });
       } catch (modelError) {
         console.error('[Atlas] Error del motor:', modelError);
-        if (modelError?.status === 429) {
+        if (modelError?.status === 429 || modelError?.status === 402) {
           return await interaction.editReply(
-            '[Atlas] ⚠️ El motor de Atlas rechazó la solicitud por límite o falta de créditos.'
+            '[Atlas] ⚠️ El motor de Atlas rechazó la solicitud por límite, créditos o disponibilidad del proveedor.'
           );
         }
         return await interaction.editReply('[Atlas] ❌ El motor de Atlas no pudo procesar el análisis.');
@@ -471,7 +733,8 @@ ${nodo.contenido}
         console.error('[Atlas] El análisis fue registrado, pero no se pudo actualizar ultima_actividad:', actividadError);
       }
 
-      return await interaction.editReply(
+      return await responderLargo(
+        interaction,
         `[Atlas] 🔬 **Análisis registrado correctamente.**\n\n` +
         `**Nodo analizado:** #${nodo.id}\n` +
         `**Nuevo nodo:** #${nuevoNodo.id}\n` +
