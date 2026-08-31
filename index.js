@@ -99,9 +99,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('atlas-producir')
     .setDescription('Atlas: registra una nueva producción trazable en Arkhé')
-    .addIntegerOption(option => option
+    .addStringOption(option => option
       .setName('investigacion_id')
-      .setDescription('ID de la investigación de Arkhé')
+      .setDescription('UUID de la investigación de Arkhé')
       .setRequired(true))
     .addStringOption(option => option
       .setName('contenido')
@@ -239,7 +239,7 @@ client.on('interactionCreate', async interaction => {
     // ========================================================
 
     if (interaction.commandName === 'atlas-producir') {
-      const investigacionId = interaction.options.getInteger('investigacion_id', true);
+      const investigacionId = interaction.options.getString('investigacion_id', true);
       const contenido = interaction.options.getString('contenido', true);
       const tipo = interaction.options.getString('tipo', true);
       const refId = interaction.options.getInteger('ref_id', false);
