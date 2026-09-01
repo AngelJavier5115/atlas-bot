@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import http from 'http';
 import { registrarEvaluacion } from './arkhe-evaluation.js';
 import { registrarProduccion } from './arkhe-production.js';
+import { ejecutarAtlasRonda, crearComandoAtlasRonda, ATLAS_ROUND_COMMAND_NAME } from './arkhe-round-command.js';
 
 // ============================================================
 // ATLAS — NODO DE ANÁLISIS DE ARKHÉ
@@ -99,7 +100,6 @@ async function responderLargo(interaction, texto) {
 // ============================================================
 
 const commands = [
-  // Evaluación IA: Atlas determina su propia posición.
   new SlashCommandBuilder()
     .setName('atlas-evaluar')
     .setDescription('Atlas: evalúa un nodo mediante su propio razonamiento')
@@ -142,7 +142,9 @@ const commands = [
     .addIntegerOption(option => option
       .setName('ref_id')
       .setDescription('ID opcional del nodo de referencia')
-      .setRequired(false))
+      .setRequired(false)),
+
+  crearComandoAtlasRonda(SlashCommandBuilder)
 ].map(cmd => cmd.toJSON());
 
 // ============================================================
@@ -185,13 +187,24 @@ client.on('interactionCreate', async interaction => {
     'atlas-evaluar',
     'atlas-consultar',
     'atlas-analizar',
-    'atlas-producir'
+    'atlas-producir',
+    ATLAS_ROUND_COMMAND_NAME
   ]);
 
   if (!allowed.has(interaction.commandName)) return;
 
   try {
     await interaction.deferReply();
+
+    if (interaction.commandName === ATLAS_ROUND_COMMAND_NAME) {
+      return await ejecutarAtlasRonda({
+        interaction,
+        supabase,
+        openai,
+        atlasId: ATLAS_ID,
+        responderLargo
+      });
+    }
 
     const id = interaction.options.getInteger('id');
 
