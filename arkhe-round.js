@@ -90,7 +90,7 @@ ${JSON.stringify(contexto, null, 2)}
 
 Responde como una perspectiva de investigación, no como una decisión final.
 
-Devuelve únicamente JSON válido:
+Devuelve únicamente un objeto JSON válido con esta estructura exacta:
 {
   "tipo": "perspectiva",
   "posicion": "provisional|insuficiente_informacion|acuerdo|discrepancia",
@@ -199,25 +199,51 @@ export async function generarPerspectivaAtlas({
   const contexto = await obtenerContextoRonda(supabase, ronda);
   const prompt = construirPromptAtlas(contexto);
 
-  const respuesta = await openai.responses.create({
-    model: process.env.OPENAI_MODEL || 'gpt-4o',
-    instructions: prompt,
-    input: 'Aporta ahora tu perspectiva independiente a esta ronda de Arkhé.',
-    max_output_tokens: maxOutputTokens
+  // Usamos Chat Completions + JSON mode porque el modelo de Atlas está
+  // detrás de OpenRouter. JSON mode obliga al proveedor a devolver JSON
+  // sintácticamente válido y evita el fallo que observamos en la primera prueba.
+  const respuesta = await openai.chat.completions.create({
+    model: process.env.OPENROUTER_MODEL || process.env.OPENAI_MODEL || 'openai/gpt-oss-20b',
+    messages: [
+      {
+        role: 'system',
+        content: prompt
+      },
+      {
+        role: 'user',
+        content: 'Aporta ahora tu perspectiva independiente a esta ronda de Arkhé.'
+      }
+    ],
+    response_format: {
+      type: 'json_object'
+    },
+    max_tokens: maxOutputTokens
   });
 
-  const texto = respuesta?.output_text?.trim();
+  const texto = respuesta?.choices?.[0]?.message?.content?.trim();
   if (!texto) throw new Error('Atlas no produjo una perspectiva utilizable.');
 
   let resultado;
   try {
     resultado = JSON.parse(texto);
   } catch {
+    console.error('[Atlas] Respuesta JSON inválida del motor:', texto);
     throw new Error('La perspectiva de Atlas no devolvió JSON válido.');
   }
 
   if (resultado?.tipo !== 'perspectiva') {
     throw new Error('La intervención de Atlas no corresponde al tipo perspectiva.');
+  }
+
+  const posicionesValidas = new Set([
+    'provisional',
+    'insuficiente_informacion',
+    'acuerdo',
+    'discrepancia'
+  ]);
+
+  if (!posicionesValidas.has(resultado?.posicion)) {
+    throw new Error(`Posición de Atlas inválida: ${resultado?.posicion ?? 'ausente'}.`);
   }
 
   const contenido = textoSeguro(resultado.contenido);
@@ -236,7 +262,7 @@ export async function generarPerspectivaAtlas({
   const siguienteOrden = (ultima?.orden ?? 0) + 1;
 
   const metadata = {
-    posicion: resultado.posicion ?? 'provisional',
+    posicion: resultado.posicion,
     incertidumbres: Array.isArray(resultado.incertidumbres)
       ? resultado.incertidumbres
       : [],
