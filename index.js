@@ -9,6 +9,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import http from 'http';
+import { ejecutarConvocatoria } from './arkhe-round.js';
 import { registrarEvaluacion } from './arkhe-evaluation.js';
 import { registrarProduccion } from './arkhe-production.js';
 import { ejecutarAtlasRonda, crearComandoAtlasRonda, ATLAS_ROUND_COMMAND_NAME } from './arkhe-round-command.js';
@@ -19,13 +20,57 @@ import { ejecutarAtlasRonda, crearComandoAtlasRonda, ATLAS_ROUND_COMMAND_NAME } 
 
 const PORT = process.env.PORT || 3000;
 
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('Atlas Bot is active!\n');
-}).listen(PORT, () => {
-  console.log(`[Atlas] Servidor HTTP activo en puerto ${PORT}`);
+function leerJsonRequest(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk; });
+    req.on('end', () => {
+      try { resolve(raw ? JSON.parse(raw) : {}); }
+      catch (error) { reject(error); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function autorizadoCore(req) {
+  const esperado = process.env.ARKHE_CORE_TOKEN;
+  const recibido = req.headers['x-arkhe-core-token'];
+  return Boolean(esperado && recibido && recibido === esperado);
+}
+
+const server = http.createServer(async (req, res) => {
+  if (req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Atlas Bot is active!\n');
+  }
+
+  if (req.method === 'POST' && req.url === '/arkhe/invocation') {
+    if (!autorizadoCore(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ ok: false, error: 'No autorizado.' }));
+    }
+
+    try {
+      const body = await leerJsonRequest(req);
+      const convocatoriaId = body?.convocatoria_id;
+      if (!convocatoriaId) throw new Error('convocatoria_id es obligatorio.');
+
+      const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ ok: true, ...resultado }));
+    } catch (error) {
+      console.error('[Atlas] Error ejecutando convocatoria:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ ok: false, error: error?.message || 'Error interno.' }));
+    }
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify({ ok: false, error: 'Ruta no encontrada.' }));
 });
 
+server.listen(PORT, () => {
 // ============================================================
 // SUPABASE / OPENAI
 // ============================================================
