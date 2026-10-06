@@ -54,9 +54,7 @@ const server = http.createServer(async (req, res) => {
       const body = await leerJsonRequest(req);
       const convocatoriaId = body?.convocatoria_id;
       if (!convocatoriaId) throw new Error('convocatoria_id es obligatorio.');
-
       const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
-
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ ok: true, ...resultado }));
     } catch (error) {
