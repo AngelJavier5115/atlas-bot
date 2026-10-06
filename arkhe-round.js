@@ -169,6 +169,13 @@ export async function generarPerspectivaAtlas({
   };
 }
 
+const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
+
+export async function ejecutarConvocatoria({ convocatoriaId, responder = true, openai, ai }) {
+  const resultado = await generarPerspectivaAtlas({ openai, atlasId: ATLAS_ID, convocatoriaId });
+  return resultado;
+}
+
 export function formatearPerspectivaDiscord({ ronda, intervencion, resultado }) {
   const incertidumbres = Array.isArray(resultado?.incertidumbres)
     ? resultado.incertidumbres
