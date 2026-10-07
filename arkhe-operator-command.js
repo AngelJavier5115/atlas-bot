@@ -140,3 +140,83 @@ export async function ejecutarArkheRonda({
 
   return;
 }
+
+
+export const ARKHE_INVOCATION_OPERATOR_COMMAND = 'arkhe-convocar';
+
+export function crearComandoArkheConvocar(SlashCommandBuilder) {
+  return new SlashCommandBuilder()
+    .setName(ARKHE_INVOCATION_OPERATOR_COMMAND)
+    .setDescription('Arkhé: ejecuta una convocatoria existente de un investigador.')
+    .addStringOption(option => option
+      .setName('convocatoria_id')
+      .setDescription('UUID de la convocatoria pendiente')
+      .setRequired(true));
+}
+
+export async function ejecutarArkheConvocar({
+  interaction
+}) {
+  const convocatoriaId = interaction.options.getString('convocatoria_id', true);
+
+  const convocatoria = await coreRequest({
+    action: 'obtener_convocatoria',
+    convocatoria_id: convocatoriaId
+  });
+
+  const investigatorId = convocatoria?.convocatoria?.investigador_id;
+  const estado = convocatoria?.convocatoria?.estado;
+
+  if (!investigatorId) {
+    throw new Error('Arkhé Core no devolvió el investigador de la convocatoria.');
+  }
+
+  if (!['pendiente', 'enviada'].includes(estado)) {
+    throw new Error(
+      'La convocatoria no está pendiente de ejecución. Estado actual: ' +
+      (estado || 'desconocido') + '.'
+    );
+  }
+
+  const url = BODY_URLS[investigatorId];
+  if (!url) {
+    throw new Error('No existe un cuerpo configurado para el investigador convocado.');
+  }
+
+  await interaction.editReply(
+    '🧭 **Arkhé Core — ejecutando convocatoria existente**\\n\\n' +
+    '**Convocatoria:** ' + convocatoriaId + '\\n' +
+    '**Investigador:** ' + (convocatoria?.identidad?.nombre_identitario || investigatorId) + '\\n' +
+    '⏳ El investigador está procesando su intervención...'
+  );
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-arkhe-core-token': process.env.ARKHE_CORE_TOKEN
+    },
+    body: JSON.stringify({
+      convocatoria_id: convocatoriaId,
+      discord_channel_id: interaction.channelId
+    })
+  });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error('El cuerpo respondió HTTP ' + response.status + ' sin JSON válido.');
+  }
+
+  if (!response.ok || body?.ok === false) {
+    throw new Error(body?.error || 'El cuerpo respondió HTTP ' + response.status + '.');
+  }
+
+  await interaction.editReply(
+    '✅ **Arkhé Core — convocatoria ejecutada**\\n\\n' +
+    '**Convocatoria:** ' + convocatoriaId + '\\n' +
+    '**Investigador:** ' + (convocatoria?.identidad?.nombre_identitario || investigatorId) + '\\n' +
+    'La intervención fue enviada al canal por su propio cuerpo.'
+  );
+}
