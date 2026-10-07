@@ -239,36 +239,86 @@ export async function generarPerspectivaAtlas({
           .trim();
       }
 
-      if (texto) {
-        modeloUsado = modelo;
-        console.log('[Atlas] Motor produjo contenido utilizable:', modelo);
-        break;
-      }
-
       const finishReason = respuesta?.choices?.[0]?.finish_reason ?? 'desconocido';
       const refusal = respuesta?.choices?.[0]?.message?.refusal ?? null;
-      ultimoMotivo =
-        'respuesta vacía; finish_reason=' + finishReason +
-        (refusal ? '; refusal=' + String(refusal).slice(0, 200) : '');
 
-      console.warn('[Atlas] Respuesta sin contenido utilizable:', ultimoMotivo);
+      if (!texto) {
+        ultimoMotivo =
+          'respuesta vacía; finish_reason=' + finishReason +
+          (refusal ? '; refusal=' + String(refusal).slice(0, 200) : '');
+
+        console.warn('[Atlas] Respuesta sin contenido utilizable:', ultimoMotivo);
+        continue;
+      }
+
+      const candidato = extraerJsonObjeto(texto);
+      const posicionesValidas = new Set([
+        'provisional',
+        'insuficiente_informacion',
+        'acuerdo',
+        'discrepancia'
+      ]);
+
+      if (!candidato) {
+        ultimoMotivo =
+          'JSON no interpretable; finish_reason=' + finishReason +
+          '; longitud=' + texto.length;
+
+        console.warn('[Atlas] Motor devolvió texto pero no JSON válido:', modelo, ultimoMotivo);
+        continue;
+      }
+
+      if (candidato?.tipo !== 'perspectiva') {
+        ultimoMotivo =
+          'tipo inválido=' + String(candidato?.tipo ?? 'ausente') +
+          '; finish_reason=' + finishReason;
+
+        console.warn('[Atlas] JSON válido pero tipo incorrecto:', modelo, ultimoMotivo);
+        continue;
+      }
+
+      if (!posicionesValidas.has(candidato?.posicion)) {
+        ultimoMotivo =
+          'posición inválida=' + String(candidato?.posicion ?? 'ausente') +
+          '; finish_reason=' + finishReason;
+
+        console.warn('[Atlas] JSON válido pero posición incorrecta:', modelo, ultimoMotivo);
+        continue;
+      }
+
+      const contenidoCandidato = textoSeguro(candidato.contenido);
+      if (!contenidoCandidato) {
+        ultimoMotivo =
+          'contenido vacío; finish_reason=' + finishReason;
+
+        console.warn('[Atlas] JSON válido pero contenido vacío:', modelo);
+        continue;
+      }
+
+      texto = texto;
+      modeloUsado = modelo;
+
+      console.log(
+        '[Atlas] Motor produjo perspectiva válida:',
+        modelo,
+        'finish_reason=' + finishReason,
+        'longitud=' + texto.length
+      );
+
+      break;
     } catch (error) {
       ultimoMotivo = error?.message || 'error desconocido';
       console.error('[Atlas] Falló el motor ' + modelo + ':', ultimoMotivo);
     }
   }
 
-  if (!texto) {
+  if (!texto || !modeloUsado) {
     throw new Error('Atlas no produjo una perspectiva utilizable tras probar los motores disponibles. Motivo final: ' + ultimoMotivo);
   }
 
   const resultado = extraerJsonObjeto(texto);
 
   if (!resultado) {
-    console.error(
-      '[Atlas] No se pudo extraer JSON de la respuesta del motor. Primeros caracteres:',
-      texto.slice(0, 500)
-    );
     throw new Error('La perspectiva de Atlas no devolvió un objeto JSON interpretable.');
   }
 
