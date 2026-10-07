@@ -700,7 +700,8 @@ ${nodo.contenido}
     console.error('[Atlas] Error en interacción:', err);
 
     try {
-      await interaction.editReply('[Atlas] ❌ Ocurrió un error interno.');
+      const motivo = err?.message || 'error desconocido';
+      await interaction.editReply('[Atlas] ❌ La operación no pudo completarse.\\n\\n**Motivo:** ' + motivo);
     } catch (replyError) {
       console.error('[Atlas] No se pudo enviar el mensaje de error:', replyError);
     }
