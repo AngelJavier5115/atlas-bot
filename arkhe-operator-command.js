@@ -226,7 +226,16 @@ export async function ejecutarArkheConvocar({
   }
 
   if (!response.ok || body?.ok === false) {
-    throw new Error(body?.error || 'El cuerpo respondió HTTP ' + response.status + '.');
+    const detalle = body?.error || 'El cuerpo respondió HTTP ' + response.status + '.';
+    if (body?.transitorio) {
+      throw new Error(
+        'El investigador no está disponible temporalmente (HTTP ' +
+        response.status +
+        '). La convocatoria permanece disponible para reintento. Detalle: ' +
+        detalle
+      );
+    }
+    throw new Error(detalle);
   }
 
   await interaction.editReply(
