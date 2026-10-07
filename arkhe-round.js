@@ -13,6 +13,67 @@ function textoSeguro(value, fallback = '') {
   return String(value).trim();
 }
 
+function extraerJsonObjeto(texto) {
+  const limpio = String(texto ?? '').trim();
+  if (!limpio) return null;
+
+  // 1) JSON puro.
+  try {
+    return JSON.parse(limpio);
+  } catch {}
+
+  // 2) JSON dentro de un bloque Markdown.
+  const bloque = limpio.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\\s*\`\`\`/i);
+  if (bloque?.[1]) {
+    try {
+      return JSON.parse(bloque[1].trim());
+    } catch {}
+  }
+
+  // 3) Extraer el primer objeto JSON balanceado, respetando strings y escapes.
+  const inicio = limpio.indexOf('{');
+  if (inicio < 0) return null;
+
+  let profundidad = 0;
+  let enString = false;
+  let escapado = false;
+
+  for (let i = inicio; i < limpio.length; i++) {
+    const ch = limpio[i];
+
+    if (enString) {
+      if (escapado) {
+        escapado = false;
+      } else if (ch === '\\') {
+        escapado = true;
+      } else if (ch === '"') {
+        enString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      enString = true;
+      continue;
+    }
+
+    if (ch === '{') profundidad += 1;
+    if (ch === '}') {
+      profundidad -= 1;
+      if (profundidad === 0) {
+        const candidato = limpio.slice(inicio, i + 1);
+        try {
+          return JSON.parse(candidato);
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function construirPromptAtlas(convocatoria) {
   const identidad = convocatoria.identidad;
   const memorias = convocatoria.memoria_identitaria ?? [];
@@ -163,11 +224,14 @@ export async function generarPerspectivaAtlas({
     throw new Error('Atlas no produjo una perspectiva utilizable tras probar los motores disponibles. Motivo final: ' + ultimoMotivo);
   }
 
-  let resultado;
-  try {
-    resultado = JSON.parse(texto);
-  } catch {
-    throw new Error('La perspectiva de Atlas no devolvió JSON válido.');
+  const resultado = extraerJsonObjeto(texto);
+
+  if (!resultado) {
+    console.error(
+      '[Atlas] No se pudo extraer JSON de la respuesta del motor. Primeros caracteres:',
+      texto.slice(0, 500)
+    );
+    throw new Error('La perspectiva de Atlas no devolvió un objeto JSON interpretable.');
   }
 
   const posicionesValidas = new Set([
