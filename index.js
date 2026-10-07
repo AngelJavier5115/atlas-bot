@@ -56,6 +56,13 @@ const server = http.createServer(async (req, res) => {
       const convocatoriaId = body?.convocatoria_id;
       if (!convocatoriaId) throw new Error('convocatoria_id es obligatorio.');
       const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
+      const contenidoPublicable =
+        resultado?.resultado?.contenido ??
+        resultado?.intervencion?.contenido ??
+        resultado?.contenido ??
+        'Intervención registrada.';
+      await publicarConvocatoriaEnDiscord(body, contenidoPublicable);
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ ok: true, ...resultado }));
     } catch (error) {
@@ -75,6 +82,28 @@ server.listen(PORT, () => {
 // ============================================================
 // SUPABASE / OPENAI
 // ============================================================
+
+
+async function publicarConvocatoriaEnDiscord(body, contenido) {
+  const channelId = body?.discord_channel_id;
+  if (!channelId) return;
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !channel.isTextBased()) {
+      throw new Error('El canal de Discord no es utilizable.');
+    }
+
+    const texto = '[Atlas] 🧠 **Intervención de Arkhé**\\n\\n' + String(contenido ?? '');
+    const max = 1900;
+
+    for (let offset = 0; offset < texto.length; offset += max) {
+      await channel.send(texto.slice(offset, offset + max));
+    }
+  } catch (error) {
+    console.error('[Atlas] Error publicando intervención en Discord:', error);
+  }
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
