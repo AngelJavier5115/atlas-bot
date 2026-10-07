@@ -22,15 +22,7 @@ function extraerJsonObjeto(texto) {
     return JSON.parse(limpio);
   } catch {}
 
-  // 2) JSON dentro de un bloque Markdown.
-  const bloque = limpio.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\\s*\`\`\`/i);
-  if (bloque?.[1]) {
-    try {
-      return JSON.parse(bloque[1].trim());
-    } catch {}
-  }
-
-  // 3) Extraer el primer objeto JSON balanceado, respetando strings y escapes.
+  // 2) Extraer el primer objeto JSON balanceado, respetando strings y escapes.
   const inicio = limpio.indexOf('{');
   if (inicio < 0) return null;
 
