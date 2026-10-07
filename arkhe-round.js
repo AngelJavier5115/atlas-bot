@@ -178,7 +178,53 @@ export async function generarPerspectivaAtlas({
           { role: 'system', content: prompt },
           { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
         ],
-        response_format: { type: 'json_object' },
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'arkhe_atlas_perspectiva',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                tipo: {
+                  type: 'string',
+                  enum: ['perspectiva']
+                },
+                posicion: {
+                  type: 'string',
+                  enum: [
+                    'provisional',
+                    'insuficiente_informacion',
+                    'acuerdo',
+                    'discrepancia'
+                  ]
+                },
+                contenido: {
+                  type: 'string'
+                },
+                incertidumbres: {
+                  type: 'array',
+                  items: { type: 'string' }
+                },
+                preguntas_abiertas: {
+                  type: 'array',
+                  items: { type: 'string' }
+                }
+              },
+              required: [
+                'tipo',
+                'posicion',
+                'contenido',
+                'incertidumbres',
+                'preguntas_abiertas'
+              ],
+              additionalProperties: false
+            }
+          }
+        },
+        provider: {
+          require_parameters: true
+        },
         max_tokens: maxOutputTokens
       });
 
