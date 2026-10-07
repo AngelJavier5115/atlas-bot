@@ -103,18 +103,65 @@ export async function generarPerspectivaAtlas({
 
   const prompt = construirPromptAtlas(convocatoria);
 
-  const respuesta = await openai.chat.completions.create({
-    model: process.env.OPENROUTER_MODEL || process.env.OPENAI_MODEL || 'openai/gpt-oss-20b',
-    messages: [
-      { role: 'system', content: prompt },
-      { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
-    ],
-    response_format: { type: 'json_object' },
-    max_tokens: maxOutputTokens
-  });
+  const modeloPrincipal = process.env.OPENROUTER_MODEL || process.env.OPENAI_MODEL || 'openai/gpt-oss-20b';
+  const modelos = [...new Set([
+    modeloPrincipal,
+    'openai/gpt-oss-20b',
+    'openai/gpt-oss-120b:free'
+  ].filter(Boolean))];
 
-  const texto = respuesta?.choices?.[0]?.message?.content?.trim();
-  if (!texto) throw new Error('Atlas no produjo una perspectiva utilizable.');
+  let respuesta = null;
+  let texto = '';
+  let modeloUsado = null;
+  let ultimoMotivo = 'sin respuesta utilizable';
+
+  for (const modelo of modelos) {
+    try {
+      console.log('[Atlas] Intentando motor:', modelo);
+
+      respuesta = await openai.chat.completions.create({
+        model: modelo,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: maxOutputTokens
+      });
+
+      const contenido = respuesta?.choices?.[0]?.message?.content;
+
+      if (typeof contenido === 'string') {
+        texto = contenido.trim();
+      } else if (Array.isArray(contenido)) {
+        texto = contenido
+          .map(parte => typeof parte?.text === 'string' ? parte.text : '')
+          .join('')
+          .trim();
+      }
+
+      if (texto) {
+        modeloUsado = modelo;
+        console.log('[Atlas] Motor produjo contenido utilizable:', modelo);
+        break;
+      }
+
+      const finishReason = respuesta?.choices?.[0]?.finish_reason ?? 'desconocido';
+      const refusal = respuesta?.choices?.[0]?.message?.refusal ?? null;
+      ultimoMotivo =
+        'respuesta vacía; finish_reason=' + finishReason +
+        (refusal ? '; refusal=' + String(refusal).slice(0, 200) : '');
+
+      console.warn('[Atlas] Respuesta sin contenido utilizable:', ultimoMotivo);
+    } catch (error) {
+      ultimoMotivo = error?.message || 'error desconocido';
+      console.error('[Atlas] Falló el motor ' + modelo + ':', ultimoMotivo);
+    }
+  }
+
+  if (!texto) {
+    throw new Error('Atlas no produjo una perspectiva utilizable tras probar los motores disponibles. Motivo final: ' + ultimoMotivo);
+  }
 
   let resultado;
   try {
@@ -151,7 +198,7 @@ export async function generarPerspectivaAtlas({
     responde_a_intervencion_id: convocatoria.convocatoria.foco_intervencion_id ?? null,
     nodo_id: convocatoria.ronda?.contexto?.nodo?.id ?? convocatoria.ronda?.contexto?.nodo_id ?? null,
     identidad_version: convocatoria.identidad.version,
-    modelo: process.env.OPENROUTER_MODEL || process.env.OPENAI_MODEL || 'openai/gpt-oss-20b',
+    modelo: modeloUsado || modeloPrincipal,
     proveedor: process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI',
     metadata: {
       posicion: resultado.posicion,
