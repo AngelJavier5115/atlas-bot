@@ -95,7 +95,8 @@ export async function ejecutarArkheRonda({
           'x-arkhe-core-token': process.env.ARKHE_CORE_TOKEN
         },
         body: JSON.stringify({
-          convocatoria_id: convocatoria.id
+          convocatoria_id: convocatoria.id,
+          discord_channel_id: interaction.channelId
         })
       });
 
@@ -114,42 +115,27 @@ export async function ejecutarArkheRonda({
     })
   );
 
-  const names = {
-    [RESEARCHERS.atlas]: 'Atlas',
-    [RESEARCHERS.aletheia]: 'Aletheia',
-    [RESEARCHERS.tekton]: 'Tekton'
-  };
+  const errors = results
+    .map((result, index) => ({ result, convocatoria: lista[index] }))
+    .filter(item => item.result.status === 'rejected');
 
-  const messages = [];
+  if (errors.length) {
+    const nombres = {
+      [RESEARCHERS.atlas]: 'Atlas',
+      [RESEARCHERS.aletheia]: 'Aletheia',
+      [RESEARCHERS.tekton]: 'Tekton'
+    };
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    const convocatoria = lista[i];
-    const name = names[convocatoria.investigador_id] || convocatoria.investigador_id;
-
-    if (result.status === 'fulfilled') {
-      const contenido =
-        result.value?.resultado?.contenido ??
-        result.value?.intervencion?.contenido ??
-        result.value?.contenido ??
-        'Intervención sin contenido visible.';
-
-      messages.push(
-        '### ' + name + '\n' +
-        '**Convocatoria:** ' + convocatoria.id + '\n' +
-        '**Intervención:** ' + (result.value?.intervencion?.id ?? 'registrada') + '\n\n' +
-        contenido
-      );
-    } else {
-      messages.push(
-        '### ' + name + '\n❌ Error al ejecutar su convocatoria: ' +
+    const detalle = errors
+      .map(({ result, convocatoria }) =>
+        nombres[convocatoria.investigador_id] + ': ' +
         (result.reason?.message || 'error desconocido')
-      );
-    }
+      )
+      .join('\n');
+
+    await interaction.followUp(
+      '⚠️ **Arkhé Core — algunas convocatorias no se completaron:**\n' + detalle
+    );
   }
 
-  return await responderLargo(
-    interaction,
-    messages.join('\n\n────────────\n\n')
-  );
-}
+  return;
