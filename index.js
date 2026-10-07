@@ -13,7 +13,7 @@ import { ejecutarConvocatoria } from './arkhe-round.js';
 import { registrarEvaluacion } from './arkhe-evaluation.js';
 import { registrarProduccion } from './arkhe-production.js';
 import { ejecutarAtlasRonda, crearComandoAtlasRonda, ATLAS_ROUND_COMMAND_NAME } from './arkhe-round-command.js';
-import { ejecutarArkheRonda, crearComandoArkheRonda, ARKHE_ROUND_OPERATOR_COMMAND } from './arkhe-operator-command.js';
+import { ejecutarArkheRonda, crearComandoArkheRonda, ARKHE_ROUND_OPERATOR_COMMAND, ejecutarArkheConvocar, crearComandoArkheConvocar, ARKHE_INVOCATION_OPERATOR_COMMAND } from './arkhe-operator-command.js';
 
 // ============================================================
 // ATLAS — NODO DE ANÁLISIS DE ARKHÉ
@@ -230,7 +230,8 @@ const commands = [
       .setRequired(false)),
 
   crearComandoAtlasRonda(SlashCommandBuilder),
-  crearComandoArkheRonda(SlashCommandBuilder)
+  crearComandoArkheRonda(SlashCommandBuilder),
+  crearComandoArkheConvocar(SlashCommandBuilder)
 ].map(cmd => cmd.toJSON());
 
 // ============================================================
@@ -275,7 +276,8 @@ client.on('interactionCreate', async interaction => {
     'atlas-analizar',
     'atlas-producir',
     ATLAS_ROUND_COMMAND_NAME,
-    ARKHE_ROUND_OPERATOR_COMMAND
+    ARKHE_ROUND_OPERATOR_COMMAND,
+    ARKHE_INVOCATION_OPERATOR_COMMAND
   ]);
 
   if (!allowed.has(interaction.commandName)) return;
@@ -285,6 +287,10 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === ARKHE_ROUND_OPERATOR_COMMAND) {
       return await ejecutarArkheRonda({ interaction, responderLargo });
+    }
+
+    if (interaction.commandName === ARKHE_INVOCATION_OPERATOR_COMMAND) {
+      return await ejecutarArkheConvocar({ interaction });
     }
 
     if (interaction.commandName === ATLAS_ROUND_COMMAND_NAME) {
