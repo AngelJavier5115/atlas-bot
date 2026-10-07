@@ -31,6 +31,15 @@ export function crearComandoArkheRonda(SlashCommandBuilder) {
       .setName('pregunta')
       .setDescription('Pregunta que guiará la ronda')
       .setRequired(true))
+    .addStringOption(option => option
+      .setName('investigador')
+      .setDescription('Convocar sólo a un investigador; por defecto participan los tres.')
+      .setRequired(false)
+      .addChoices(
+        { name: 'Atlas', value: 'atlas' },
+        { name: 'Aletheia', value: 'aletheia' },
+        { name: 'Tekton', value: 'tekton' }
+      ))
     .addIntegerOption(option => option
       .setName('nodo')
       .setDescription('ID opcional de un nodo de memoria Arkhé')
@@ -42,7 +51,11 @@ export async function ejecutarArkheRonda({
   responderLargo
 }) {
   const pregunta = interaction.options.getString('pregunta', true);
+  const investigador = interaction.options.getString('investigador');
   const nodoId = interaction.options.getInteger('nodo');
+  const participantes = investigador
+    ? [RESEARCHERS[investigador]]
+    : Object.values(RESEARCHERS);
 
   const inicio = await coreRequest({
     action: 'iniciar_ronda',
@@ -50,7 +63,7 @@ export async function ejecutarArkheRonda({
     investigacion_codigo: 'AR-001',
     tipo: 'consulta',
     pregunta,
-    participantes: Object.values(RESEARCHERS),
+    participantes,
     nodo_id: nodoId ?? null,
     contexto: {
       origen: 'discord',
@@ -63,21 +76,24 @@ export async function ejecutarArkheRonda({
     action: 'convocar_investigadores',
     actor_id: ANGEL_ID,
     ronda_id: inicio.ronda.id,
-    investigadores: Object.values(RESEARCHERS),
+    investigadores: participantes,
     tipo_convocatoria: 'perspectiva',
     instruccion_humana: pregunta
   });
 
   const lista = convocatorias.convocatorias ?? [];
-  if (lista.length !== 3) {
-    throw new Error('Arkhé Core esperaba 3 convocatorias y creó ' + lista.length + '.');
+  const esperadas = participantes.length;
+  if (lista.length !== esperadas) {
+    throw new Error('Arkhé Core esperaba ' + esperadas + ' convocatoria(s) y creó ' + lista.length + '.');
   }
 
   await interaction.editReply(
     '🧭 **Arkhé Core — Ronda #' + inicio.ronda.numero + ' abierta**\n\n' +
     '**Pregunta:** ' + pregunta + '\n' +
     '**Nodo:** ' + (nodoId ?? 'sin nodo ancla') + '\n' +
-    '**Investigadores convocados:** Atlas, Aletheia y Tekton\n\n' +
+    '**Investigadores convocados:** ' +
+      (investigador ? investigador.charAt(0).toUpperCase() + investigador.slice(1) : 'Atlas, Aletheia y Tekton') +
+      '\n\n' +
     '⏳ Sus cuerpos están procesando sus intervenciones independientes...'
   );
 
