@@ -179,7 +179,14 @@ export async function generarPerspectivaAtlas({
           { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
         ],
         ...(process.env.OPENROUTER_API_KEY
-          ? { extra_headers: { 'X-OpenRouter-Metadata': 'enabled' } }
+          ? {
+              extra_headers: { 'X-OpenRouter-Metadata': 'enabled' },
+              trace: {
+                trace_id: convocatoriaId,
+                trace_name: 'arkhe-atlas',
+                generation_name: 'perspectiva'
+              }
+            }
           : {}),
         response_format: {
           type: 'json_schema',
