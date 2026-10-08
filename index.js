@@ -23,64 +23,16 @@ import { ejecutarArkheRonda, crearComandoArkheRonda, ARKHE_ROUND_OPERATOR_COMMAN
 
 const PORT = process.env.PORT || 3000;
 const A2_PR_PREVIEW = process.env.IS_PULL_REQUEST === 'true';
-const A2_SMOKE_ENABLED = A2_PR_PREVIEW && process.env.ARKHE_A2_PREVIEW === '1';
-const A2_EXPECTED_INVESTIGATOR_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
 
 
-function leerJsonRequest(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', chunk => { raw += chunk; });
-    req.on('end', () => {
-      try { resolve(raw ? JSON.parse(raw) : {}); }
-      catch (error) { reject(error); }
-    });
-    req.on('error', reject);
-  });
-}
-
-function autorizadoCore(req) {
+function leerJsonRequest
+(req) {
   const esperado = process.env.ARKHE_CORE_TOKEN;
   const recibido = req.headers['x-arkhe-core-token'];
   return Boolean(esperado && recibido && recibido === esperado);
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/a2/smoke') {
-    if (!A2_SMOKE_ENABLED) {
-      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: false }));
-    }
-
-    const convocatoriaId = process.env.ARKHE_A2_CONVOCATORIA_ID;
-    if (!convocatoriaId) {
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: false, error: 'ARKHE_A2_CONVOCATORIA_ID no está configurado.' }));
-    }
-
-    try {
-      const result = await coreRequest({
-        action: 'obtener_convocatoria',
-        convocatoria_id: convocatoriaId
-      });
-
-      if (result?.convocatoria?.investigador_id !== A2_EXPECTED_INVESTIGATOR_ID) {
-        throw new Error('La convocatoria no coincide con la identidad esperada del servicio.');
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({
-        ok: true,
-        service_id: process.env.ARKHE_SERVICE_ID,
-        investigator_id: result.convocatoria.investigador_id,
-        convocatoria_id: convocatoriaId
-      }));
-    } catch (error) {
-      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: false, error: error?.message ?? 'A2 smoke failed.' }));
-    }
-  }
-
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Atlas Bot is active!\n');
