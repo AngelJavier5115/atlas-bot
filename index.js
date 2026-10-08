@@ -4,8 +4,9 @@ import {
   REST,
   Routes,
   SlashCommandBuilder
-import { coreRequest } from './arkhe-core-client.js';
 } from 'discord.js';
+
+import { coreRequest } from './arkhe-core-client.js';
 
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
