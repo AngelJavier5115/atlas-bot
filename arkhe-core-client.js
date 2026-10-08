@@ -38,10 +38,7 @@ function signedHeaders(body) {
     'x-arkhe-timestamp': String(timestamp),
     'x-arkhe-nonce': nonce,
     'x-arkhe-signature': signature,
-    ...(CORE_TOKEN ? { 'x-arkhe-core-token': CORE_TOKEN } : {}),
-    ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-      ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-      : {})
+    ...(CORE_TOKEN ? { 'x-arkhe-core-token': CORE_TOKEN } : {})
   };
 }
 
