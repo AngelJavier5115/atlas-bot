@@ -178,6 +178,9 @@ export async function generarPerspectivaAtlas({
           { role: 'system', content: prompt },
           { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
         ],
+        ...(process.env.OPENROUTER_API_KEY
+          ? { extra_headers: { 'X-OpenRouter-Metadata': 'enabled' } }
+          : {}),
         response_format: {
           type: 'json_schema',
           json_schema: {
@@ -353,6 +356,17 @@ export async function generarPerspectivaAtlas({
   }
 
   const proveedor = process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI';
+  const providerRequestId = textoSeguro(respuesta?._request_id);
+  const openRouterMetadata = process.env.OPENROUTER_API_KEY
+    ? (respuesta?.openrouter_metadata ?? null)
+    : null;
+
+  const selectedEndpoint = Array.isArray(openRouterMetadata?.endpoints?.available)
+    ? openRouterMetadata.endpoints.available.find(endpoint => endpoint.selected === true)
+    : null;
+
+  const proveedorUpstreamObservado = textoSeguro(selectedEndpoint?.provider);
+  const modeloUpstreamObservado = textoSeguro(selectedEndpoint?.model);
 
   const persistida = await coreRequest({
     action: 'completar_convocatoria',
@@ -376,7 +390,10 @@ export async function generarPerspectivaAtlas({
       modelo_observado: modeloObservado,
       id_respuesta_proveedor: idRespuestaProveedor,
       nivel_procedencia: 'provider-response-attested',
-      proveedor_upstream: proveedor === 'OpenRouter' ? null : 'OpenAI'
+      proveedor_upstream: proveedorUpstreamObservado || (proveedor === 'OpenRouter' ? null : 'OpenAI'),
+      modelo_upstream_observado: modeloUpstreamObservado || null,
+      id_solicitud_sdk: providerRequestId || null,
+      observabilidad_router: openRouterMetadata
     }
   });
 
