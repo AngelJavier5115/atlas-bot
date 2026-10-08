@@ -340,6 +340,20 @@ export async function generarPerspectivaAtlas({
   const contenido = textoSeguro(resultado.contenido);
   if (!contenido) throw new Error('La perspectiva de Atlas está vacía.');
 
+  const modeloSolicitado = modeloUsado || modeloPrincipal;
+  const modeloObservado = textoSeguro(respuesta?.model);
+  const idRespuestaProveedor = textoSeguro(respuesta?.id);
+
+  if (!modeloObservado) {
+    throw new Error('Atlas no recibió el modelo observado por el proveedor.');
+  }
+
+  if (!idRespuestaProveedor) {
+    throw new Error('Atlas no recibió un identificador de respuesta del proveedor.');
+  }
+
+  const proveedor = process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI';
+
   const persistida = await coreRequest({
     action: 'completar_convocatoria',
     convocatoria_id: convocatoriaId,
@@ -350,14 +364,19 @@ export async function generarPerspectivaAtlas({
     responde_a_intervencion_id: convocatoria.convocatoria.foco_intervencion_id ?? null,
     nodo_id: convocatoria.ronda?.contexto?.nodo?.id ?? convocatoria.ronda?.contexto?.nodo_id ?? null,
     identidad_version: convocatoria.identidad.version,
-    modelo: modeloUsado || modeloPrincipal,
-    proveedor: process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI',
+    modelo: modeloObservado,
+    proveedor,
     metadata: {
       posicion: resultado.posicion,
       incertidumbres: Array.isArray(resultado.incertidumbres) ? resultado.incertidumbres : [],
       preguntas_abiertas: Array.isArray(resultado.preguntas_abiertas) ? resultado.preguntas_abiertas : [],
       cuerpo: 'discord',
-      adaptador: 'atlas-researcher-v2'
+      adaptador: 'atlas-researcher-v2',
+      modelo_solicitado: modeloSolicitado,
+      modelo_observado: modeloObservado,
+      id_respuesta_proveedor: idRespuestaProveedor,
+      nivel_procedencia: 'provider-response-attested',
+      proveedor_upstream: proveedor === 'OpenRouter' ? null : 'OpenAI'
     }
   });
 
