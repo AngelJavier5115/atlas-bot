@@ -25,8 +25,19 @@ const PORT = process.env.PORT || 3000;
 const A2_PR_PREVIEW = process.env.IS_PULL_REQUEST === 'true';
 
 
-function leerJsonRequest
-(req) {
+function leerJsonRequest(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk; });
+    req.on('end', () => {
+      try { resolve(raw ? JSON.parse(raw) : {}); }
+      catch (error) { reject(error); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function autorizadoCore(req) {
   const esperado = process.env.ARKHE_CORE_TOKEN;
   const recibido = req.headers['x-arkhe-core-token'];
   return Boolean(esperado && recibido && recibido === esperado);
