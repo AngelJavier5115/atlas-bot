@@ -1,0 +1,21 @@
+name: A2 Bot Audit
+
+on:
+  push:
+    branches:
+      - audit/a2-provenance-boundary
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --check index.js
+      - run: node --check arkhe-round.js
+      - run: node --check arkhe-core-client.js
