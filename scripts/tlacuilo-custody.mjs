@@ -72,7 +72,7 @@ const CORRECTION_GUIDANCE = Object.freeze([
   },
   {
     code: 'WRITE_RESULT_AMBIGUOUS',
-    matches: [/No repitas/, /no se pudo verificar la relación/, /el historial no coincide/, /timeout|timed out|fetch failed|socket hang up/i],
+    matches: [/No repitas|No reintentes/, /no se pudo verificar la relación/, /el historial no coincide/, /timeout|timed out|fetch failed|socket hang up/i],
     phase: 'account',
     title: 'El resultado de la escritura es incierto',
     risk: 'La operación podría haberse guardado aunque no se haya recibido o verificado una respuesta completa.',
