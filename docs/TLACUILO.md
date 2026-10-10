@@ -17,7 +17,7 @@ Esta implementación es una aplicación técnica propuesta de ese principio; no 
 2. **Primero lectura:** `mode=preflight` comprueba configuración, texto de los nodos y ausencia de una relación en ambas direcciones. No contiene operaciones de escritura.
 3. **Autorización explícita:** crear una relación requiere seleccionar `execute` y escribir exactamente `CREATE_RELATION_5_6_ONCE`.
 4. **Destino cerrado:** el ejecutor codifica el endpoint exacto de Preview de `design/tree-network-dashboard` y el proyecto Supabase autorizado. Rechaza destinos distintos.
-5. **Identidad criptográfica:** la API deriva la identidad de Atlas de una firma Ed25519 válida. Tlacuilo no envía identidad ni procedencia en el cuerpo de la petición.
+5. **Identidad diferenciada:** Tlacuilo se autentica como servicio separado con su propia clave Ed25519. La API sólo permite a ese servicio la política fija `tlacuilo-smoke-relation-5-6-duplicates-v1`, y registra por separado el ejecutor (`tlacuilo`) y el investigador delegado (Atlas). Tlacuilo no firma como Atlas ni envía identidad o procedencia en el cuerpo.
 6. **Escritura a través de la API:** el ejecutor nunca escribe directamente en las tablas semánticas; las escrituras pasan por la API y sus RPC restringidos.
 7. **No repetir tras ambigüedad:** si hay timeout o no se puede verificar el resultado después de una escritura, Tlacuilo se detiene. No reintenta automáticamente.
 8. **Secretos fuera del código y los registros:** las claves se almacenan como secretos protegidos de GitHub/Vercel. No se imprimen, guardan como artefactos ni se registran en texto.
@@ -39,16 +39,16 @@ Si cualquier comprobación falla, termina sin escribir.
 
 ### 2. Preparar credenciales fuera del repositorio
 
-Crear una pareja Ed25519 nueva en un entorno local confiable o mediante un procedimiento corporativo equivalente. No copiar claves a esta conversación.
+Crear una pareja Ed25519 nueva en un entorno local confiable o mediante un procedimiento corporativo equivalente. No copiar claves a esta conversación. La identidad de firma de Tlacuilo debe ser independiente de Atlas.
 
 - Añadir la **clave privada** como secreto de Environment `tlacuilo-preview`: `TLACUILO_SIGNING_PRIVATE_KEY`.
-- Añadir la **clave pública correspondiente** en Vercel como `ARKHE_ATLAS_PUBLIC_KEY`, con ámbito exclusivo `Preview` y rama `design/tree-network-dashboard`.
+- Añadir la **clave pública correspondiente** en Vercel como `ARKHE_TLACUILO_PUBLIC_KEY`, con ámbito exclusivo `Preview` y rama `design/tree-network-dashboard`.
 - Añadir el bypass de automatización de Preview como `TLACUILO_VERCEL_PROTECTION_BYPASS`, sólo si la protección de Vercel lo requiere.
 - Añadir `TLACUILO_SUPABASE_READ_KEY` como clave de lectura capaz de consultar los nodos, las relaciones y sus eventos.
 
 El valor de `TLACUILO_SUPABASE_READ_KEY` debe tener el menor permiso posible. Se debe probar primero con una clave de lectura pública/limitada; si las políticas RLS no permiten verificar filas, la ejecución debe detenerse. No sustituirla por una clave administrativa amplia sin diseñar y revisar primero un acceso de lectura más estrecho.
 
-Crear el Environment `tlacuilo-preview` en GitHub y configurar una regla de aprobación humana antes de almacenar o usar los secretos. No guardar secretos en variables públicas, commits, comentarios, capturas ni logs.
+Antes de configurar credenciales, mover el ejecutor y su workflow a un repositorio **privado dedicado**. `atlas-bot` es público; no configurar aquí los secretos de ejecución. En el repositorio privado, crear el Environment `tlacuilo-preview` con aprobación humana antes de almacenar o usar secretos. No guardarlos en el código, comentarios, capturas ni logs.
 
 ### 3. Ejecución única
 
@@ -77,6 +77,6 @@ Al finalizar:
 
 ## Límite de esta versión
 
-El workflow está preparado para ser manual, pero GitHub sólo ofrece el disparador `workflow_dispatch` cuando el archivo existe en la rama predeterminada del repositorio. Por tanto, este prototipo en rama **no se puede despachar todavía desde Actions sin una decisión adicional**: revisar un PR de workflow en la rama predeterminada o trasladar estos archivos a un repositorio privado dedicado. Esta propuesta no autoriza por sí sola una fusión a `main`.
+El workflow está preparado para ser manual, pero hoy vive en una rama de un repositorio público. El primer paso de ejecución es trasladarlo a un repositorio privado dedicado antes de configurar secretos; allí debe existir en la rama predeterminada para habilitar `workflow_dispatch`. Esta propuesta no autoriza por sí sola una fusión a `main`.
 
-Hasta que se configure el Environment, se establezcan las claves correctas y se ejecute un preflight satisfactorio, no hay ninguna relación semántica nueva registrada.
+Además, la restricción de `public.core_request_nonces` en la base actual sólo permite `atlas`, `aletheia` y `tekton`. Se añadió a esta rama una migración revisable para permitir `tlacuilo`, pero **no se ha aplicado a Supabase**. Debe revisarse y aprobarse antes de la ejecución. Hasta que se resuelvan estas dependencias y se ejecute un preflight satisfactorio, no hay ninguna relación semántica nueva registrada.
