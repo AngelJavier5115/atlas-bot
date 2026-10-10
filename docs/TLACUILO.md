@@ -45,7 +45,7 @@ Para la operación puntual de este prototipo, el principio de custodia se traduc
 7. **No repetir operaciones ambiguas:** si la respuesta o la verificación es incierta, detenerse y requerir inspección manual.
 8. **Conservar crítica y evidencia:** una compuerta de custodia no decide por sí misma qué afirmación es verdadera ni suprime desacuerdos. Debe proteger la trazabilidad para que Ángel, Atlas, Aletheia y Tekton puedan revisar lo ocurrido.
 
-## 3. Identidades
+## 4. Identidades
 
 - **Investigador proponente:** Atlas. Su identidad de investigador se conserva en `created_by_investigator_id`.
 - **Ejecutor autenticado:** Tlacuilo, con clave Ed25519 propia. Se registra en la procedencia como `executor_service_id`.
@@ -54,7 +54,7 @@ Para la operación puntual de este prototipo, el principio de custodia se traduc
 
 No se reutiliza la clave privada de Atlas para firmar como Tlacuilo. La API del Dashboard debe tener la clave pública de Tlacuilo como `ARKHE_TLACUILO_PUBLIC_KEY`, restringida a Preview y a la rama de diseño. El secreto privado de Tlacuilo reside sólo en el entorno aislado del ejecutor.
 
-## 4. Invariantes de custodia
+## 5. Invariantes de custodia
 
 - El proceso normal de Atlas no importa ni ejecuta este runner.
 - El runner no escribe directamente en las tablas semánticas; usa el endpoint autorizado y las RPC restringidas del Dashboard.
@@ -64,7 +64,7 @@ No se reutiliza la clave privada de Atlas para firmar como Tlacuilo. La API del 
 - Ningún desacuerdo sobre los principios de Arkhé se resuelve ocultando evidencia. Los conflictos se registran y se elevan a revisión.
 - Los secretos nunca se muestran en logs, commits, capturas ni mensajes de chat.
 
-## 5. Flujo de esta prueba
+## 6. Flujo de esta prueba
 
 ### A. Preflight de sólo lectura
 
@@ -82,13 +82,13 @@ Tras la creación, el runner comprueba la relación, la atribución a Atlas, la 
 
 Después de una ejecución real deberán revocarse el bypass temporal de Preview y los secretos de corta duración; se confirmará el resultado en Supabase y se documentará la salida. No ejecutar una escritura hasta que el preflight haya terminado satisfactoriamente y el entorno tenga aprobación humana.
 
-## 6. Lo que todavía no estamos implementando
+## 7. Lo que todavía no estamos implementando
 
 La idea original contemplaba que, en el futuro, cada investigador contara con su propia función Tlacuilo. Esta prueba no crea un agente autónomo, no instala una capa invisible dentro de Atlas/Aletheia/Tekton, no vigila conversaciones de forma continua y no concede a una IA autoridad para actuar por encima de la gobernanza del proyecto.
 
 Una posible fase futura debe diseñarse por separado: principios comunes de custodia, evaluaciones independientes por investigador, gestión de conflictos, controles de acceso, registros auditables y un proceso humano para revisar alertas. Esa fase requiere definición y revisión explícitas antes de implementarse.
 
-## 7. Estado verificado
+## 8. Estado verificado
 
 - CI estática y pruebas del runner aprobadas en la rama aislada.
 - No se ha ejecutado ninguna escritura real con este executor.
