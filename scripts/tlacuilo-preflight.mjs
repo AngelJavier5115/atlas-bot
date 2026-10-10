@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 export const EXPECTED_NODE_TEXTS = Object.freeze({
   5: 'El uso de arquitecturas basadas en eventos optimiza la sincronización entre nodos en tiempo real.',
@@ -95,6 +97,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && new URL(import.meta.url).pathname === process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   await main();
 }
