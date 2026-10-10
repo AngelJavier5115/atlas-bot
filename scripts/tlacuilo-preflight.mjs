@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { buildTlacuiloReport, emitTlacuiloReport } from './tlacuilo-custody.mjs';
 
 export const EXPECTED_NODE_TEXTS = Object.freeze({
   5: 'El uso de arquitecturas basadas en eventos optimiza la sincronización entre nodos en tiempo real.',
@@ -35,6 +36,7 @@ export async function runTlacuiloPreflight({
 } = {}) {
   validateTlacuiloPreflightConfig(env);
 
+  const checks = ['Configuración validada contra el proyecto Supabase autorizado.'];
   const supabase = createSupabaseClient(env.SUPABASE_URL, env.SUPABASE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -48,6 +50,7 @@ export async function runTlacuiloPreflight({
     throw new Error('No se pudieron leer ambos nodos aprobados; Tlacuilo se detiene sin escribir.');
   }
 
+  checks.push('Los nodos #5 y #6 están disponibles para inspección.');
   const nodeMap = new Map(nodes.map(node => [Number(node.id), node]));
   for (const [rawId, expectedText] of Object.entries(EXPECTED_NODE_TEXTS)) {
     if (nodeMap.get(Number(rawId))?.contenido !== expectedText) {
@@ -55,6 +58,7 @@ export async function runTlacuiloPreflight({
     }
   }
 
+  checks.push('El contenido de ambos nodos coincide exactamente con lo aprobado.');
   const relationProjection = 'id, source_node_id, target_node_id, relation_type, assertion, evidence_text, created_by_investigator_id, origin_kind, origin_channel, provenance';
   const [forward, reverse, eventAccess] = await Promise.all([
     supabase.from('arkhe_semantic_relations')
@@ -78,6 +82,7 @@ export async function runTlacuiloPreflight({
     throw new Error('No se puede leer el historial necesario para verificar una escritura; Tlacuilo se detiene sin escribir.');
   }
 
+  checks.push('La lectura de relaciones en ambas direcciones y del historial está disponible.');
   const existing = [...(forward.data ?? []), ...(reverse.data ?? [])];
   if (existing.length) {
     throw new Error('Ya existe una relación entre los nodos #5 y #6; Tlacuilo se detiene y no crea duplicados.');
@@ -91,16 +96,26 @@ export async function runTlacuiloPreflight({
     approved_texts_match: true,
     relation_absent_in_both_directions: true,
     writes_performed: 0,
-    note: 'Comprobación de solo lectura. Aún no se ha solicitado crear la relación.',
+    checks,
+    note: 'Comprobación de solo lectura. No se ha ejecutado ninguna corrección ni escritura persistente.',
   };
 }
 
 async function main() {
   try {
     const result = await runTlacuiloPreflight();
-    console.log('[Tlacuilo] Preflight completado:', JSON.stringify(result));
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'passed',
+      phase: 'observe',
+      checks: result.checks,
+      writeState: 'not_attempted',
+    }));
   } catch (error) {
-    console.error('[Tlacuilo] PRECHECK ABORTADO:', error?.message ?? 'Error desconocido.');
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'aborted',
+      error,
+      checks: ['Preflight detenido antes de cualquier escritura.'],
+    }));
     process.exitCode = 1;
   }
 }
