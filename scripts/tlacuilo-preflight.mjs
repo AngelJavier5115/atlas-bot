@@ -55,19 +55,27 @@ export async function runTlacuiloPreflight({
     }
   }
 
-  const [forward, reverse] = await Promise.all([
+  const relationProjection = 'id, source_node_id, target_node_id, relation_type, assertion, evidence_text, created_by_investigator_id, origin_kind, origin_channel, provenance';
+  const [forward, reverse, eventAccess] = await Promise.all([
     supabase.from('arkhe_semantic_relations')
-      .select('id, source_node_id, target_node_id, relation_type')
+      .select(relationProjection)
       .eq('source_node_id', 5)
       .eq('target_node_id', 6),
     supabase.from('arkhe_semantic_relations')
-      .select('id, source_node_id, target_node_id, relation_type')
+      .select(relationProjection)
       .eq('source_node_id', 6)
       .eq('target_node_id', 5),
+    // Probe read permission on every event field needed for post-write verification.
+    supabase.from('arkhe_semantic_relation_events')
+      .select('id, event_type, actor_investigator_id, actor_kind')
+      .limit(1),
   ]);
 
   if (forward.error || reverse.error) {
     throw new Error('No se pudo comprobar la relación en ambas direcciones; Tlacuilo se detiene sin escribir.');
+  }
+  if (eventAccess.error) {
+    throw new Error('No se puede leer el historial necesario para verificar una escritura; Tlacuilo se detiene sin escribir.');
   }
 
   const existing = [...(forward.data ?? []), ...(reverse.data ?? [])];
