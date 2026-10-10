@@ -19,3 +19,5 @@ jobs:
       - run: node --check index.js
       - run: node --check arkhe-round.js
       - run: node --check arkhe-core-client.js
+      - run: node --check scripts/semantic-relation-smoke.mjs
+      - run: node --test tests/semantic-relation-smoke.test.mjs

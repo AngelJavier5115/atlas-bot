@@ -4,6 +4,7 @@ const CORE_URL = process.env.ARKHE_CORE_URL;
 const CORE_TOKEN = process.env.ARKHE_CORE_TOKEN;
 const SERVICE_ID = process.env.ARKHE_SERVICE_ID;
 const SERVICE_PRIVATE_KEY = process.env.ARKHE_SERVICE_PRIVATE_KEY;
+const VERCEL_PROTECTION_BYPASS = process.env.ARKHE_VERCEL_PROTECTION_BYPASS;
 
 function buildSigningPayload({ serviceId, timestamp, nonce, body }) {
   const bodyHash = createHash('sha256')
@@ -38,7 +39,8 @@ function signedHeaders(body) {
     'x-arkhe-timestamp': String(timestamp),
     'x-arkhe-nonce': nonce,
     'x-arkhe-signature': signature,
-    ...(CORE_TOKEN ? { 'x-arkhe-core-token': CORE_TOKEN } : {})
+    ...(CORE_TOKEN ? { 'x-arkhe-core-token': CORE_TOKEN } : {}),
+    ...(VERCEL_PROTECTION_BYPASS ? { 'x-vercel-protection-bypass': VERCEL_PROTECTION_BYPASS } : {})
   };
 }
 
