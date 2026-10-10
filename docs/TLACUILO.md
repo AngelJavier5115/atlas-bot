@@ -84,6 +84,8 @@ Después de una ejecución real deberán revocarse el bypass temporal de Preview
 
 ## 7. Lo que todavía no estamos implementando
 
+El workflow de prueba incluye una compuerta que se niega a ejecutar desde un repositorio público. Esta rama de `atlas-bot` sólo conserva el prototipo auditable; no se deben guardar aquí claves reales ni un bypass. Antes de configurar secretos o habilitar `workflow_dispatch`, el ejecutor debe trasladarse a un repositorio privado dedicado y revisado.
+
 La idea original contemplaba que, en el futuro, cada investigador contara con su propia función Tlacuilo. Esta prueba no crea un agente autónomo, no instala una capa invisible dentro de Atlas/Aletheia/Tekton, no vigila conversaciones de forma continua y no concede a una IA autoridad para actuar por encima de la gobernanza del proyecto.
 
 Una posible fase futura debe diseñarse por separado: principios comunes de custodia, evaluaciones independientes por investigador, gestión de conflictos, controles de acceso, registros auditables y un proceso humano para revisar alertas. Esa fase requiere definición y revisión explícitas antes de implementarse.
