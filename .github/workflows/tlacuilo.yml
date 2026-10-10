@@ -36,10 +36,15 @@ jobs:
         shell: bash
         env:
           SELECTED_REF: ${{ github.ref }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
           MODE: ${{ inputs.mode }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
+          if [ "$REPOSITORY_PRIVATE" != "true" ]; then
+            echo "::error::Tlacuilo no ejecuta operaciones con secretos desde un repositorio público. Mueve el workflow revisado a un repositorio privado dedicado."
+            exit 1
+          fi
           if [ "$SELECTED_REF" != "refs/heads/security/tlacuilo-executor" ]; then
             echo "::error::Tlacuilo sólo puede ejecutarse desde security/tlacuilo-executor."
             exit 1
