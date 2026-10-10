@@ -73,10 +73,11 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Test the one-shot runner guards
-        run: node --test tests/semantic-relation-smoke.test.mjs tests/tlacuilo-preflight.test.mjs
+        run: node --test tests/semantic-relation-smoke.test.mjs tests/tlacuilo-preflight.test.mjs tests/tlacuilo-custody.test.mjs
 
       - name: Validate syntax
         run: |
+          node --check scripts/tlacuilo-custody.mjs
           node --check scripts/tlacuilo-preflight.mjs
           node --check scripts/semantic-relation-smoke.mjs
           node --check arkhe-core-client.js
