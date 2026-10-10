@@ -1,82 +1,78 @@
-# Tlacuilo — custodio de operaciones controladas de Arkhé
+# Tlacuilo — primera aplicación técnica del principio de custodia de Arkhé
 
-**Estado:** prototipo en rama aislada; no aprobado para producción.  
-**Propósito inmediato:** probar de extremo a extremo una sola propuesta de relación semántica entre los nodos #5 y #6 en el Preview de Arkhé.
+**Estado:** prototipo en ramas aisladas; no aprobado para producción.  
+**Alcance de esta versión:** comprobar precondiciones y, sólo con autorización explícita, intentar una única propuesta de relación semántica entre los nodos #5 y #6 en el Preview del Dashboard.
 
-## Inspiración y límites
+## 1. Qué recuperamos de la memoria de DeepSeek/Tekton
 
-Tlacuilo toma su inspiración de la preocupación de Arkhé por proteger el tronco y las raíces sin impedir que el proyecto evolucione. El Archivo Maestro documenta el **Protocolo de Custodia del Proyecto** y distingue los cambios operativos de los cambios que modifican la identidad, los principios o la arquitectura metodológica del proyecto.
+La exportación de conversaciones del 4 de octubre contiene la conversación **«Proyecto confidencial»**. En los intercambios de agosto y septiembre Ángel definió Tlacuilo inicialmente como una función de vigilancia y protección: observar puntos ciegos, examinar riesgos que pudieran pasar inadvertidos, advertir cuando algo amenazara la integridad del proyecto y ayudar a pensar con franqueza, incluso cuando la conclusión fuera incómoda.
 
-Esta implementación es una aplicación técnica propuesta de ese principio; no pretende afirmar que el nombre o todos los detalles operativos ya estuvieran formalizados en la memoria histórica de Tlacuilo.
+El propósito declarado no era manipular ni atacar a otros investigadores. Ángel aclaró que quería comprender el mundo para proteger y hacer crecer Arkhé, y que el objetivo era defender el proyecto y su búsqueda de conocimiento.
 
-**Tlacuilo escribe bajo autorización; no gobierna Arkhé.** No puede aprobar una relación, modificar principios, cambiar la configuración del proyecto, desplegar servicios ni fusionar código.
+El 16 de septiembre Ángel propuso que, cuando los investigadores llegaran a tener motores independientes, **cada investigador pudiera disponer de una función Tlacuilo propia para defender la integridad del proyecto**. En ese mismo intercambio dejó expresamente el protocolo formal para el futuro.
 
-## Invariantes de custodia
+Por tanto, la memoria fija una **intención y una dirección de diseño**, no una especificación técnica completa. Esta versión no debe presentarse como el protocolo Tlacuilo definitivo ni como una implementación de múltiples custodios.
 
-1. **Aislamiento:** sólo se ejecuta desde `security/tlacuilo-executor`. El código no se importa desde el proceso normal de Atlas.
-2. **Primero lectura:** `mode=preflight` comprueba configuración, texto de los nodos y ausencia de una relación en ambas direcciones. No contiene operaciones de escritura.
-3. **Autorización explícita:** crear una relación requiere seleccionar `execute` y escribir exactamente `CREATE_RELATION_5_6_ONCE`.
-4. **Destino cerrado:** el ejecutor codifica el endpoint exacto de Preview de `design/tree-network-dashboard` y el proyecto Supabase autorizado. Rechaza destinos distintos.
-5. **Identidad diferenciada:** Tlacuilo se autentica como servicio separado con su propia clave Ed25519. La API sólo permite a ese servicio la política fija `tlacuilo-smoke-relation-5-6-duplicates-v1`, y registra por separado el ejecutor (`tlacuilo`) y el investigador delegado (Atlas). Tlacuilo no firma como Atlas ni envía identidad o procedencia en el cuerpo.
-6. **Escritura a través de la API:** el ejecutor nunca escribe directamente en las tablas semánticas; las escrituras pasan por la API y sus RPC restringidos.
-7. **No repetir tras ambigüedad:** si hay timeout o no se puede verificar el resultado después de una escritura, Tlacuilo se detiene. No reintenta automáticamente.
-8. **Secretos fuera del código y los registros:** las claves se almacenan como secretos protegidos de GitHub/Vercel. No se imprimen, guardan como artefactos ni se registran en texto.
-9. **Permisos mínimos:** el workflow sólo pide `contents: read`, no despliega y no modifica el repositorio.
-10. **Control humano:** los cambios constitucionales, la fusión a `main`, la ejecución de la escritura y la retirada final de credenciales requieren decisión humana explícita.
+## 2. Traducción a una operación del Dashboard
 
-## Flujo de ejecución
+Para la operación puntual de este prototipo, el principio de custodia se traduce en una compuerta técnica verificable:
 
-### 1. Preflight de solo lectura
+1. **Observar antes de actuar:** leer los nodos, confirmar su contenido exacto y comprobar que no exista la relación propuesta.
+2. **Reconocer identidad y atribución por separado:** la petición debe estar firmada por el servicio ejecutor `tlacuilo`; la propuesta queda atribuida a Atlas mediante una delegación limitada registrada en la procedencia.
+3. **Aplicar límites conocidos:** el servidor sólo acepta la propuesta aprobada #5 → #6, tipo `duplicates`, con su texto de afirmación y evidencia exactos, sin URL externa, proveedor, modelo, referencia de ejecución ni sustitución de relaciones.
+4. **Detenerse ante discrepancias:** si cambian los nodos, hay errores de lectura, aparece una relación en cualquiera de las direcciones o la firma no se valida, la operación termina sin escribir.
+5. **Exigir una autorización de ejecución explícita:** el modo de sólo lectura no puede escribir. La escritura es un paso separado con confirmación de una sola operación y aprobación humana del entorno.
+6. **Verificar después de ejecutar:** comprobar la relación persistida, la identidad atribuida a Atlas, la identidad autenticada de Tlacuilo y el evento de auditoría.
+7. **No repetir operaciones ambiguas:** si la respuesta o la verificación es incierta, detenerse y requerir inspección manual.
+8. **Conservar crítica y evidencia:** una compuerta de custodia no decide por sí misma qué afirmación es verdadera ni suprime desacuerdos. Debe proteger la trazabilidad para que Ángel, Atlas, Aletheia y Tekton puedan revisar lo ocurrido.
 
-El workflow ejecuta las pruebas del verificador y `scripts/tlacuilo-preflight.mjs`. Verifica:
+## 3. Identidades
 
-- que Supabase corresponde al proyecto autorizado;
-- que los textos de los nodos #5 y #6 coinciden exactamente con lo aprobado;
-- que no exista una relación #5 → #6 ni #6 → #5;
-- que todas las lecturas se puedan completar sin errores.
+- **Investigador proponente:** Atlas. Su identidad de investigador se conserva en `created_by_investigator_id`.
+- **Ejecutor autenticado:** Tlacuilo, con clave Ed25519 propia. Se registra en la procedencia como `executor_service_id`.
+- **Gobierno de la operación:** el modo de escritura se activa manualmente y está sujeto a una aprobación humana del entorno protegido.
+- **Servicio de destino:** únicamente el endpoint del Preview de `design/tree-network-dashboard`; producción queda fuera de alcance.
 
-Si cualquier comprobación falla, termina sin escribir.
+No se reutiliza la clave privada de Atlas para firmar como Tlacuilo. La API del Dashboard debe tener la clave pública de Tlacuilo como `ARKHE_TLACUILO_PUBLIC_KEY`, restringida a Preview y a la rama de diseño. El secreto privado de Tlacuilo reside sólo en el entorno aislado del ejecutor.
 
-### 2. Preparar credenciales fuera del repositorio
+## 4. Invariantes de custodia
 
-Crear una pareja Ed25519 nueva en un entorno local confiable o mediante un procedimiento corporativo equivalente. No copiar claves a esta conversación. La identidad de firma de Tlacuilo debe ser independiente de Atlas.
+- El proceso normal de Atlas no importa ni ejecuta este runner.
+- El runner no escribe directamente en las tablas semánticas; usa el endpoint autorizado y las RPC restringidas del Dashboard.
+- El runner no puede cambiar su alcance, modificar principios, desplegar servicios, fusionar código ni otorgarse permisos.
+- La frase de confirmación del workflow no sustituye la verificación criptográfica ni la aprobación humana.
+- Se registran tanto el servicio que ejecutó la petición como el investigador al que se atribuye la propuesta.
+- Ningún desacuerdo sobre los principios de Arkhé se resuelve ocultando evidencia. Los conflictos se registran y se elevan a revisión.
+- Los secretos nunca se muestran en logs, commits, capturas ni mensajes de chat.
 
-- Añadir la **clave privada** como secreto de Environment `tlacuilo-preview`: `TLACUILO_SIGNING_PRIVATE_KEY`.
-- Añadir la **clave pública correspondiente** en Vercel como `ARKHE_TLACUILO_PUBLIC_KEY`, con ámbito exclusivo `Preview` y rama `design/tree-network-dashboard`.
-- Añadir el bypass de automatización de Preview como `TLACUILO_VERCEL_PROTECTION_BYPASS`, sólo si la protección de Vercel lo requiere.
-- Añadir `TLACUILO_SUPABASE_READ_KEY` como clave de lectura capaz de consultar los nodos, las relaciones y sus eventos.
+## 5. Flujo de esta prueba
 
-El valor de `TLACUILO_SUPABASE_READ_KEY` debe tener el menor permiso posible. Se debe probar primero con una clave de lectura pública/limitada; si las políticas RLS no permiten verificar filas, la ejecución debe detenerse. No sustituirla por una clave administrativa amplia sin diseñar y revisar primero un acceso de lectura más estrecho.
+### A. Preflight de sólo lectura
 
-Antes de configurar credenciales, mover el ejecutor y su workflow a un repositorio **privado dedicado**. `atlas-bot` es público; no configurar aquí los secretos de ejecución. En el repositorio privado, crear el Environment `tlacuilo-preview` con aprobación humana antes de almacenar o usar secretos. No guardarlos en el código, comentarios, capturas ni logs.
+`scripts/tlacuilo-preflight.mjs` verifica el proyecto Supabase, el contenido de los nodos #5 y #6, la inexistencia de una relación en ambas direcciones y que pueda leerse el historial de eventos. No contiene una operación de escritura.
 
-### 3. Ejecución única
+### B. Propuesta única
 
-Desde GitHub Actions:
+El runner `scripts/semantic-relation-smoke.mjs` puede enviar únicamente la propuesta documentada en `SEMANTIC_RELATION_SMOKE.md`: relación #5 → #6, tipo `duplicates`. El servidor vuelve a comprobar la política de delegación; no confía sólo en la validación del runner.
 
-- Elegir `Tlacuilo - controlled semantic smoke`.
-- Seleccionar la rama `security/tlacuilo-executor`.
-- Ejecutar primero `preflight`.
-- Revisar el resultado.
-- Sólo para la operación expresamente aprobada, seleccionar `execute` y escribir `CREATE_RELATION_5_6_ONCE`.
+### C. Verificación
 
-La ejecución sólo intenta crear la relación #5 → #6, tipo `duplicates`, con el texto documentado en `SEMANTIC_RELATION_SMOKE.md`. No inventa proveedor, modelo, referencia de ejecución ni fuente externa.
+Tras la creación, el runner comprueba la relación, la atribución a Atlas, la identidad autenticada de Tlacuilo, la política de delegación y un único evento `relation_created`. Un resultado ambiguo exige revisión manual y no un reintento automático.
 
-### 4. Verificación y cierre
+### D. Cierre
 
-Después de la respuesta de la API, el runner verifica la relación, la identidad atribuida a Atlas y el evento de creación. Un resultado incompleto requiere inspección manual y **no** una repetición automática.
+Después de una ejecución real deberán revocarse el bypass temporal de Preview y los secretos de corta duración; se confirmará el resultado en Supabase y se documentará la salida. No ejecutar una escritura hasta que el preflight haya terminado satisfactoriamente y el entorno tenga aprobación humana.
 
-Al finalizar:
+## 6. Lo que todavía no estamos implementando
 
-- comprobar manualmente los resultados;
-- retirar/revocar el bypass temporal de Preview;
-- eliminar los secretos temporales de GitHub;
-- quitar o vaciar la clave pública de prueba de la rama Preview si la clave no se reutilizará;
-- registrar si la prueba tuvo éxito, falló antes de escribir o terminó con resultado ambiguo;
-- dejar la escritura de nuevas relaciones deshabilitada hasta otra autorización.
+La idea original contemplaba que, en el futuro, cada investigador contara con su propia función Tlacuilo. Esta prueba no crea un agente autónomo, no instala una capa invisible dentro de Atlas/Aletheia/Tekton, no vigila conversaciones de forma continua y no concede a una IA autoridad para actuar por encima de la gobernanza del proyecto.
 
-## Límite de esta versión
+Una posible fase futura debe diseñarse por separado: principios comunes de custodia, evaluaciones independientes por investigador, gestión de conflictos, controles de acceso, registros auditables y un proceso humano para revisar alertas. Esa fase requiere definición y revisión explícitas antes de implementarse.
 
-El workflow está preparado para ser manual, pero hoy vive en una rama de un repositorio público. El primer paso de ejecución es trasladarlo a un repositorio privado dedicado antes de configurar secretos; allí debe existir en la rama predeterminada para habilitar `workflow_dispatch`. Esta propuesta no autoriza por sí sola una fusión a `main`.
+## 7. Estado verificado
 
-Además, la restricción de `public.core_request_nonces` en la base actual sólo permite `atlas`, `aletheia` y `tekton`. Se añadió a esta rama una migración revisable para permitir `tlacuilo`, pero **no se ha aplicado a Supabase**. Debe revisarse y aprobarse antes de la ejecución. Hasta que se resuelvan estas dependencias y se ejecute un preflight satisfactorio, no hay ninguna relación semántica nueva registrada.
+- CI estática y pruebas del runner aprobadas en la rama aislada.
+- No se ha ejecutado ninguna escritura real con este executor.
+- La consulta más reciente de Supabase mostró **0 relaciones semánticas y 0 eventos de relación**.
+- Las claves y el entorno protegido de Tlacuilo no están configurados.
+- Las ramas y los PR permanecen aislados; no se ha fusionado código a `main`, no se ha desplegado el ejecutor y el servicio Atlas de Render no se ha modificado.
