@@ -1,0 +1,41 @@
+name: Tlacuilo - static validation
+
+on:
+  push:
+    branches:
+      - security/tlacuilo-executor
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tlacuilo-validation
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: security/tlacuilo-executor
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check scripts/tlacuilo-preflight.mjs
+          node --check scripts/semantic-relation-smoke.mjs
+          node --check arkhe-core-client.js
+
+      - name: Run smoke and preflight tests
+        run: node --test tests/semantic-relation-smoke.test.mjs tests/tlacuilo-preflight.test.mjs
