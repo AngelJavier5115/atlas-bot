@@ -5,6 +5,8 @@ import { coreRequest } from '../arkhe-core-client.js';
 
 export const SMOKE_CONFIRMATION = 'CREATE_RELATION_5_6_ONCE';
 export const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
+export const TLACUILO_SERVICE_ID = 'tlacuilo';
+export const TLACUILO_POLICY_ID = 'tlacuilo-smoke-relation-5-6-duplicates-v1';
 export const EXPECTED_NODE_TEXTS = Object.freeze({
   5: 'El uso de arquitecturas basadas en eventos optimiza la sincronización entre nodos en tiempo real.',
   6: 'El uso de arquitecturas orientadas a eventos optimiza la sincronización en tiempo real.',
@@ -31,8 +33,8 @@ export function validateSmokeConfiguration(env = process.env) {
   if (env.ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE !== SMOKE_CONFIRMATION) {
     throw new Error('La escritura está deshabilitada. Configura ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE con la confirmación exacta sólo para la ejecución aislada aprobada.');
   }
-  if (env.ARKHE_SERVICE_ID !== 'atlas') {
-    throw new Error('El cliente de smoke sólo está autorizado para ARKHE_SERVICE_ID=atlas.');
+  if (env.ARKHE_SERVICE_ID !== TLACUILO_SERVICE_ID) {
+    throw new Error('El ejecutor sólo está autorizado para ARKHE_SERVICE_ID=tlacuilo; Atlas conserva su identidad de investigador.');
   }
 
   const required = [
@@ -143,8 +145,16 @@ export async function runSemanticRelationSmoke({
     relation.created_by_investigator_id === ATLAS_ID &&
     relation.origin_kind === 'investigator' &&
     relation.origin_channel === 'signed-service-api' &&
-    relation.provenance?.authentication?.service_id === 'atlas' &&
+    relation.provenance?.authentication?.service_id === TLACUILO_SERVICE_ID &&
     relation.provenance?.authentication?.signature_verified === true &&
+    relation.provenance?.assertion_source === 'delegated-investigator-proposal' &&
+    relation.provenance?.delegation?.executor_service_id === TLACUILO_SERVICE_ID &&
+    relation.provenance?.delegation?.investigator_id === ATLAS_ID &&
+    relation.provenance?.delegation?.policy_id === TLACUILO_POLICY_ID &&
+    relation.provenance?.delegation?.scope?.source_node_id === 5 &&
+    relation.provenance?.delegation?.scope?.target_node_id === 6 &&
+    relation.provenance?.delegation?.scope?.relation_type === 'duplicates' &&
+    relation.provenance?.delegation?.scope?.max_proposals === 1 &&
     relation.provenance?.provider_attestation?.status === 'not_independently_verified';
 
   if (!validRelation) {
@@ -172,6 +182,8 @@ export async function runSemanticRelationSmoke({
     relation_type: 'duplicates',
     created_by_investigator_id: ATLAS_ID,
     origin_channel: 'signed-service-api',
+    executor_service_id: TLACUILO_SERVICE_ID,
+    delegation_policy_id: TLACUILO_POLICY_ID,
     verified_creation_events: 1,
     independent_provider_attestation: false,
   };
