@@ -16,6 +16,7 @@ function makeQueryBuilder(result) {
   const query = {
     select() { return query; },
     in() { return Promise.resolve(result); },
+    limit() { return Promise.resolve(result); },
     eq() {
       eqCalls += 1;
       return eqCalls >= 2 ? Promise.resolve(result) : query;
@@ -73,7 +74,7 @@ test('preflight checks exact nodes and both relation directions without write me
       let data;
       if (table === 'investigaciones') {
         data = nodes;
-      } else if (table === 'arkhe_semantic_relations') {
+      } else if (table === 'arkhe_semantic_relations' || table === 'arkhe_semantic_relation_events') {
         data = [];
       } else {
         throw new Error('Tabla no autorizada en preflight: ' + table);
@@ -114,6 +115,7 @@ test('preflight checks exact nodes and both relation directions without write me
   assert.equal(attemptedWrite, false);
   assert.equal(tablesRead.filter(table => table === 'investigaciones').length, 1);
   assert.equal(tablesRead.filter(table => table === 'arkhe_semantic_relations').length, 2);
+  assert.equal(tablesRead.filter(table => table === 'arkhe_semantic_relation_events').length, 1);
 });
 
 test('preflight stops if an approved node changes', async () => {
