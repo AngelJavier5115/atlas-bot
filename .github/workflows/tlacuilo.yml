@@ -92,7 +92,7 @@ jobs:
         env:
           ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE: ${{ inputs.confirmation == 'CREATE_RELATION_5_6_ONCE' && inputs.mode == 'execute' && 'CREATE_RELATION_5_6_ONCE' || '' }}
           ARKHE_CORE_URL: https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations
-          ARKHE_SERVICE_ID: atlas
+          ARKHE_SERVICE_ID: tlacuilo
           ARKHE_SERVICE_PRIVATE_KEY: ${{ secrets.TLACUILO_SIGNING_PRIVATE_KEY }}
           ARKHE_VERCEL_PROTECTION_BYPASS: ${{ secrets.TLACUILO_VERCEL_PROTECTION_BYPASS }}
           SUPABASE_URL: https://xbdbdwfzcuqqudrbapom.supabase.co
