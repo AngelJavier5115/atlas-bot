@@ -178,6 +178,16 @@ export async function generarPerspectivaAtlas({
           { role: 'system', content: prompt },
           { role: 'user', content: 'Aporta ahora tu intervención independiente.' }
         ],
+        ...(process.env.OPENROUTER_API_KEY
+          ? {
+              extra_headers: { 'X-OpenRouter-Metadata': 'enabled' },
+              trace: {
+                trace_id: convocatoriaId,
+                trace_name: 'arkhe-atlas',
+                generation_name: 'perspectiva'
+              }
+            }
+          : {}),
         response_format: {
           type: 'json_schema',
           json_schema: {
@@ -340,6 +350,31 @@ export async function generarPerspectivaAtlas({
   const contenido = textoSeguro(resultado.contenido);
   if (!contenido) throw new Error('La perspectiva de Atlas está vacía.');
 
+  const modeloSolicitado = modeloUsado || modeloPrincipal;
+  const modeloObservado = textoSeguro(respuesta?.model);
+  const idRespuestaProveedor = textoSeguro(respuesta?.id);
+
+  if (!modeloObservado) {
+    throw new Error('Atlas no recibió el modelo observado por el proveedor.');
+  }
+
+  if (!idRespuestaProveedor) {
+    throw new Error('Atlas no recibió un identificador de respuesta del proveedor.');
+  }
+
+  const proveedor = process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI';
+  const providerRequestId = textoSeguro(respuesta?._request_id);
+  const openRouterMetadata = process.env.OPENROUTER_API_KEY
+    ? (respuesta?.openrouter_metadata ?? null)
+    : null;
+
+  const selectedEndpoint = Array.isArray(openRouterMetadata?.endpoints?.available)
+    ? openRouterMetadata.endpoints.available.find(endpoint => endpoint.selected === true)
+    : null;
+
+  const proveedorUpstreamObservado = textoSeguro(selectedEndpoint?.provider);
+  const modeloUpstreamObservado = textoSeguro(selectedEndpoint?.model);
+
   const persistida = await coreRequest({
     action: 'completar_convocatoria',
     convocatoria_id: convocatoriaId,
@@ -350,14 +385,22 @@ export async function generarPerspectivaAtlas({
     responde_a_intervencion_id: convocatoria.convocatoria.foco_intervencion_id ?? null,
     nodo_id: convocatoria.ronda?.contexto?.nodo?.id ?? convocatoria.ronda?.contexto?.nodo_id ?? null,
     identidad_version: convocatoria.identidad.version,
-    modelo: modeloUsado || modeloPrincipal,
-    proveedor: process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'OpenAI',
+    modelo: modeloObservado,
+    proveedor,
     metadata: {
       posicion: resultado.posicion,
       incertidumbres: Array.isArray(resultado.incertidumbres) ? resultado.incertidumbres : [],
       preguntas_abiertas: Array.isArray(resultado.preguntas_abiertas) ? resultado.preguntas_abiertas : [],
       cuerpo: 'discord',
-      adaptador: 'atlas-researcher-v2'
+      adaptador: 'atlas-researcher-v2',
+      modelo_solicitado: modeloSolicitado,
+      modelo_observado: modeloObservado,
+      id_respuesta_proveedor: idRespuestaProveedor,
+      nivel_procedencia: 'provider-response-attested',
+      proveedor_upstream: proveedorUpstreamObservado || (proveedor === 'OpenRouter' ? null : 'OpenAI'),
+      modelo_upstream_observado: modeloUpstreamObservado || null,
+      id_solicitud_sdk: providerRequestId || null,
+      observabilidad_router: openRouterMetadata
     }
   });
 
