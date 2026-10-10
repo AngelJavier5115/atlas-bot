@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { coreRequest } from '../arkhe-core-client.js';
 
 export const SMOKE_CONFIRMATION = 'CREATE_RELATION_5_6_ONCE';
@@ -186,6 +187,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   await main();
 }
