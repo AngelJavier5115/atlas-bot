@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { coreRequest } from '../arkhe-core-client.js';
+import { buildTlacuiloReport, emitTlacuiloReport } from './tlacuilo-custody.mjs';
 
 export const SMOKE_CONFIRMATION = 'CREATE_RELATION_5_6_ONCE';
 export const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
@@ -120,7 +121,14 @@ export async function runSemanticRelationSmoke({
     throw new Error('Ya existe una relación entre #5 y #6 (' + existing.map(row => row.id).join(', ') + '). No se crea duplicado; revisa los registros antes de continuar.');
   }
 
-  const result = await request(buildApprovedRelationBody());
+  let result;
+  try {
+    result = await request(buildApprovedRelationBody());
+  } catch {
+    // Once the POST is attempted, a transport/API exception cannot prove that
+    // the write did not commit. Never retry automatically.
+    throw new Error('La petición fue enviada pero no se recibió una respuesta concluyente. No reintentes: inspecciona manualmente la relación y sus eventos.');
+  }
   const relationId = result?.relation_id;
   if (result?.ok !== true || typeof relationId !== 'string' || !relationId) {
     throw new Error('La API no confirmó la creación. No repitas automáticamente la operación; revisa la base antes de reintentar.');
@@ -192,9 +200,24 @@ export async function runSemanticRelationSmoke({
 async function main() {
   try {
     const result = await runSemanticRelationSmoke();
-    console.log('[Arkhé semantic smoke] Resultado verificado:', JSON.stringify(result));
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'verified',
+      phase: 'account',
+      checks: [
+        'La identidad autenticada del ejecutor es Tlacuilo.',
+        'El servidor atribuyó la propuesta al investigador Atlas bajo la política de delegación aprobada.',
+        'La relación #5 → #6 quedó verificada por lectura posterior.',
+        'Se verificó un único evento de creación.',
+      ],
+      writeState: 'verified_created',
+    }));
+    console.log('[Tlacuilo] Resultado técnico:', JSON.stringify(result));
   } catch (error) {
-    console.error('[Arkhé semantic smoke] ABORTADO:', error?.message ?? 'Error desconocido.');
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'aborted',
+      error,
+      checks: ['La ejecución se detuvo al encontrar una condición no satisfecha o un resultado no concluyente.'],
+    }));
     process.exitCode = 1;
   }
 }
