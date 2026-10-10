@@ -59,12 +59,12 @@ export function validateSmokeConfiguration(env = process.env) {
 
   if (
     coreUrl.protocol !== 'https:' ||
-    coreUrl.hostname !== 'arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app' ||
+    coreUrl.hostname !== 'arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app' ||
     coreUrl.pathname !== '/api/semantic-relations' ||
     coreUrl.search ||
     coreUrl.hash
   ) {
-    throw new Error('La URL Core debe ser exclusivamente el endpoint /api/semantic-relations del Preview de design/tree-network-dashboard; producción queda bloqueada.');
+    throw new Error('La URL Core debe ser exclusivamente el endpoint /api/semantic-relations del Preview de security/tlacuilo-delegation; producción queda bloqueada.');
   }
   if (supabaseUrl.protocol !== 'https:' || supabaseUrl.hostname !== 'xbdbdwfzcuqqudrbapom.supabase.co') {
     throw new Error('El smoke sólo puede leer y verificar el proyecto Supabase de Arkhé autorizado.');

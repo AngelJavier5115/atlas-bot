@@ -50,9 +50,9 @@ Para la operación puntual de este prototipo, el principio de custodia se traduc
 - **Investigador proponente:** Atlas. Su identidad de investigador se conserva en `created_by_investigator_id`.
 - **Ejecutor autenticado:** Tlacuilo, con clave Ed25519 propia. Se registra en la procedencia como `executor_service_id`.
 - **Gobierno de la operación:** el modo de escritura se activa manualmente y está sujeto a una aprobación humana del entorno protegido.
-- **Servicio de destino:** únicamente el endpoint del Preview de `design/tree-network-dashboard`; producción queda fuera de alcance.
+- **Servicio de destino:** únicamente el endpoint del Preview de `security/tlacuilo-delegation`; producción queda fuera de alcance.
 
-No se reutiliza la clave privada de Atlas para firmar como Tlacuilo. La API del Dashboard debe tener la clave pública de Tlacuilo como `ARKHE_TLACUILO_PUBLIC_KEY`, restringida a Preview y a la rama de diseño. El secreto privado de Tlacuilo reside sólo en el entorno aislado del ejecutor.
+No se reutiliza la clave privada de Atlas para firmar como Tlacuilo. La API del Dashboard debe tener la clave pública de Tlacuilo como `ARKHE_TLACUILO_PUBLIC_KEY`, restringida a Preview y a la rama `security/tlacuilo-delegation`. El secreto privado de Tlacuilo reside sólo en el entorno aislado del ejecutor.
 
 ## 5. Invariantes de custodia
 

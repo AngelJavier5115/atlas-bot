@@ -14,7 +14,7 @@ function validEnv(overrides = {}) {
   return {
     ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE: SMOKE_CONFIRMATION,
     ARKHE_SERVICE_ID: TLACUILO_SERVICE_ID,
-    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations',
+    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/semantic-relations',
     ARKHE_SERVICE_PRIVATE_KEY: 'test-only-placeholder-not-a-real-key',
     ARKHE_VERCEL_PROTECTION_BYPASS: 'test-only-placeholder',
     SUPABASE_URL: 'https://xbdbdwfzcuqqudrbapom.supabase.co',
@@ -67,10 +67,10 @@ test('smoke only accepts the exact branch Preview relation endpoint and never pr
     ARKHE_CORE_URL: 'https://arkhe-dashboard.vercel.app/api/semantic-relations',
   })), /exclusivamente.*Preview/);
   assert.throws(() => validateSmokeConfiguration(validEnv({
-    ARKHE_CORE_URL: 'http://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations',
+    ARKHE_CORE_URL: 'http://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/semantic-relations',
   })), /exclusivamente.*Preview/);
   assert.throws(() => validateSmokeConfiguration(validEnv({
-    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/arkhe-core',
+    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/arkhe-core',
   })), /exclusivamente.*Preview/);
 });
 
