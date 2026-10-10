@@ -1,3 +1,5 @@
+import { appendFile as appendFileAsync } from 'node:fs/promises';
+
 export const TLACUILO_PROTOCOL = 'Tlacuilo';
 export const TLACUILO_REPORT_VERSION = 1;
 
@@ -149,7 +151,9 @@ export function buildTlacuiloReport({
       automatic_retry: false,
       note: finalWriteState === 'unknown'
         ? 'Resultado incierto: requiere reconciliación manual antes de cualquier nuevo intento.'
-        : 'Informe sin valores de secretos; revisar la evidencia antes de autorizar cambios.',
+        : finalWriteState === 'verified_created'
+          ? 'La creación se verificó mediante lectura posterior; revisar la evidencia y retirar credenciales temporales.'
+          : 'Informe sin valores de secretos; revisar la evidencia antes de autorizar cambios.',
     },
   };
 }
@@ -191,7 +195,7 @@ export function renderTlacuiloReport(report) {
 export async function emitTlacuiloReport(report, {
   logger = console,
   summaryPath = process.env.GITHUB_STEP_SUMMARY,
-  appendFile = null,
+  appendFile = appendFileAsync,
 } = {}) {
   const json = JSON.stringify(report);
   logger.log('[Tlacuilo] Informe de custodia:', json);
