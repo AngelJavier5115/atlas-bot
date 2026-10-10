@@ -22,7 +22,7 @@ After HTTP 201, it performs read-only verification that there is one matching re
 
 ## Required runtime configuration
 
-Set these only in an isolated, short-lived runner or an authorized server-side shell—not browser variables, GitHub source, or chat:
+Set these only in an isolated, short-lived runner in a **private dedicated repository** or an authorized server-side shell—not in this public `atlas-bot` repository, browser variables, source code, or chat:
 
 - \`ARKHE_CORE_URL=https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations\`
 - \`ARKHE_SERVICE_ID=tlacuilo\`
