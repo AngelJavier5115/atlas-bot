@@ -2,9 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { coreRequest } from '../arkhe-core-client.js';
+import { buildTlacuiloReport, emitTlacuiloReport } from './tlacuilo-custody.mjs';
 
 export const SMOKE_CONFIRMATION = 'CREATE_RELATION_5_6_ONCE';
 export const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
+export const TLACUILO_SERVICE_ID = 'tlacuilo';
+export const TLACUILO_POLICY_ID = 'tlacuilo-smoke-relation-5-6-duplicates-v1';
 export const EXPECTED_NODE_TEXTS = Object.freeze({
   5: 'El uso de arquitecturas basadas en eventos optimiza la sincronización entre nodos en tiempo real.',
   6: 'El uso de arquitecturas orientadas a eventos optimiza la sincronización en tiempo real.',
@@ -31,8 +34,8 @@ export function validateSmokeConfiguration(env = process.env) {
   if (env.ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE !== SMOKE_CONFIRMATION) {
     throw new Error('La escritura está deshabilitada. Configura ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE con la confirmación exacta sólo para la ejecución aislada aprobada.');
   }
-  if (env.ARKHE_SERVICE_ID !== 'atlas') {
-    throw new Error('El cliente de smoke sólo está autorizado para ARKHE_SERVICE_ID=atlas.');
+  if (env.ARKHE_SERVICE_ID !== TLACUILO_SERVICE_ID) {
+    throw new Error('El ejecutor sólo está autorizado para ARKHE_SERVICE_ID=tlacuilo; Atlas conserva su identidad de investigador.');
   }
 
   const required = [
@@ -56,12 +59,12 @@ export function validateSmokeConfiguration(env = process.env) {
 
   if (
     coreUrl.protocol !== 'https:' ||
-    coreUrl.hostname !== 'arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app' ||
+    coreUrl.hostname !== 'arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app' ||
     coreUrl.pathname !== '/api/semantic-relations' ||
     coreUrl.search ||
     coreUrl.hash
   ) {
-    throw new Error('La URL Core debe ser exclusivamente el endpoint /api/semantic-relations del Preview de design/tree-network-dashboard; producción queda bloqueada.');
+    throw new Error('La URL Core debe ser exclusivamente el endpoint /api/semantic-relations del Preview de security/tlacuilo-delegation; producción queda bloqueada.');
   }
   if (supabaseUrl.protocol !== 'https:' || supabaseUrl.hostname !== 'xbdbdwfzcuqqudrbapom.supabase.co') {
     throw new Error('El smoke sólo puede leer y verificar el proyecto Supabase de Arkhé autorizado.');
@@ -118,7 +121,14 @@ export async function runSemanticRelationSmoke({
     throw new Error('Ya existe una relación entre #5 y #6 (' + existing.map(row => row.id).join(', ') + '). No se crea duplicado; revisa los registros antes de continuar.');
   }
 
-  const result = await request(buildApprovedRelationBody());
+  let result;
+  try {
+    result = await request(buildApprovedRelationBody());
+  } catch {
+    // Once the POST is attempted, a transport/API exception cannot prove that
+    // the write did not commit. Never retry automatically.
+    throw new Error('La petición fue enviada pero no se recibió una respuesta concluyente. No reintentes: inspecciona manualmente la relación y sus eventos.');
+  }
   const relationId = result?.relation_id;
   if (result?.ok !== true || typeof relationId !== 'string' || !relationId) {
     throw new Error('La API no confirmó la creación. No repitas automáticamente la operación; revisa la base antes de reintentar.');
@@ -143,8 +153,16 @@ export async function runSemanticRelationSmoke({
     relation.created_by_investigator_id === ATLAS_ID &&
     relation.origin_kind === 'investigator' &&
     relation.origin_channel === 'signed-service-api' &&
-    relation.provenance?.authentication?.service_id === 'atlas' &&
+    relation.provenance?.authentication?.service_id === TLACUILO_SERVICE_ID &&
     relation.provenance?.authentication?.signature_verified === true &&
+    relation.provenance?.assertion_source === 'delegated-investigator-proposal' &&
+    relation.provenance?.delegation?.executor_service_id === TLACUILO_SERVICE_ID &&
+    relation.provenance?.delegation?.investigator_id === ATLAS_ID &&
+    relation.provenance?.delegation?.policy_id === TLACUILO_POLICY_ID &&
+    relation.provenance?.delegation?.scope?.source_node_id === 5 &&
+    relation.provenance?.delegation?.scope?.target_node_id === 6 &&
+    relation.provenance?.delegation?.scope?.relation_type === 'duplicates' &&
+    relation.provenance?.delegation?.scope?.max_proposals === 1 &&
     relation.provenance?.provider_attestation?.status === 'not_independently_verified';
 
   if (!validRelation) {
@@ -172,6 +190,8 @@ export async function runSemanticRelationSmoke({
     relation_type: 'duplicates',
     created_by_investigator_id: ATLAS_ID,
     origin_channel: 'signed-service-api',
+    executor_service_id: TLACUILO_SERVICE_ID,
+    delegation_policy_id: TLACUILO_POLICY_ID,
     verified_creation_events: 1,
     independent_provider_attestation: false,
   };
@@ -180,9 +200,24 @@ export async function runSemanticRelationSmoke({
 async function main() {
   try {
     const result = await runSemanticRelationSmoke();
-    console.log('[Arkhé semantic smoke] Resultado verificado:', JSON.stringify(result));
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'verified',
+      phase: 'account',
+      checks: [
+        'La identidad autenticada del ejecutor es Tlacuilo.',
+        'El servidor atribuyó la propuesta al investigador Atlas bajo la política de delegación aprobada.',
+        'La relación #5 → #6 quedó verificada por lectura posterior.',
+        'Se verificó un único evento de creación.',
+      ],
+      writeState: 'verified_created',
+    }));
+    console.log('[Tlacuilo] Resultado técnico:', JSON.stringify(result));
   } catch (error) {
-    console.error('[Arkhé semantic smoke] ABORTADO:', error?.message ?? 'Error desconocido.');
+    await emitTlacuiloReport(buildTlacuiloReport({
+      outcome: 'aborted',
+      error,
+      checks: ['La ejecución se detuvo al encontrar una condición no satisfecha o un resultado no concluyente.'],
+    }));
     process.exitCode = 1;
   }
 }

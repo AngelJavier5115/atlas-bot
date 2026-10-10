@@ -4,6 +4,8 @@ import {
   ATLAS_ID,
   EXPECTED_NODE_TEXTS,
   SMOKE_CONFIRMATION,
+  TLACUILO_POLICY_ID,
+  TLACUILO_SERVICE_ID,
   buildApprovedRelationBody,
   validateSmokeConfiguration,
 } from '../scripts/semantic-relation-smoke.mjs';
@@ -11,8 +13,8 @@ import {
 function validEnv(overrides = {}) {
   return {
     ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE: SMOKE_CONFIRMATION,
-    ARKHE_SERVICE_ID: 'atlas',
-    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations',
+    ARKHE_SERVICE_ID: TLACUILO_SERVICE_ID,
+    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/semantic-relations',
     ARKHE_SERVICE_PRIVATE_KEY: 'test-only-placeholder-not-a-real-key',
     ARKHE_VERCEL_PROTECTION_BYPASS: 'test-only-placeholder',
     SUPABASE_URL: 'https://xbdbdwfzcuqqudrbapom.supabase.co',
@@ -48,10 +50,15 @@ test('smoke cannot run unless the exact one-time confirmation is present', () =>
   })), /escritura está deshabilitada/);
 });
 
-test('smoke refuses an identity other than Atlas', () => {
+test('smoke requires its own delegated executor identity, not Atlas or another investigator service', () => {
+  assert.equal(TLACUILO_SERVICE_ID, 'tlacuilo');
+  assert.equal(TLACUILO_POLICY_ID, 'tlacuilo-smoke-relation-5-6-duplicates-v1');
+  assert.throws(() => validateSmokeConfiguration(validEnv({
+    ARKHE_SERVICE_ID: 'atlas',
+  })), /ARKHE_SERVICE_ID=tlacuilo/);
   assert.throws(() => validateSmokeConfiguration(validEnv({
     ARKHE_SERVICE_ID: 'aletheia',
-  })), /sólo está autorizado para ARKHE_SERVICE_ID=atlas/);
+  })), /ARKHE_SERVICE_ID=tlacuilo/);
 });
 
 test('smoke only accepts the exact branch Preview relation endpoint and never production', () => {
@@ -60,10 +67,10 @@ test('smoke only accepts the exact branch Preview relation endpoint and never pr
     ARKHE_CORE_URL: 'https://arkhe-dashboard.vercel.app/api/semantic-relations',
   })), /exclusivamente.*Preview/);
   assert.throws(() => validateSmokeConfiguration(validEnv({
-    ARKHE_CORE_URL: 'http://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/semantic-relations',
+    ARKHE_CORE_URL: 'http://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/semantic-relations',
   })), /exclusivamente.*Preview/);
   assert.throws(() => validateSmokeConfiguration(validEnv({
-    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-design-tree-network-dashboard-arkhe7.vercel.app/api/arkhe-core',
+    ARKHE_CORE_URL: 'https://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/arkhe-core',
   })), /exclusivamente.*Preview/);
 });
 
@@ -76,6 +83,8 @@ test('smoke fails closed if either deployment protection or the read-only verifi
   })), /SUPABASE_KEY/);
 });
 
-test('authenticated provenance must remain mapped to Atlas', () => {
+test('executor identity remains distinct from delegated Atlas investigator identity', () => {
   assert.equal(ATLAS_ID, '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f');
+  assert.equal(TLACUILO_SERVICE_ID, 'tlacuilo');
+  assert.notEqual(TLACUILO_SERVICE_ID, 'atlas');
 });

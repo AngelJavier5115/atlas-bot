@@ -1,0 +1,106 @@
+name: Tlacuilo - controlled semantic smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Preflight is read-only. Execute may create the one approved relation."
+        required: true
+        type: choice
+        options:
+          - preflight
+          - execute
+        default: preflight
+      confirmation:
+        description: "For execute only, type CREATE_RELATION_5_6_ONCE exactly."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tlacuilo-semantic-smoke
+  cancel-in-progress: false
+
+jobs:
+  tlacuilo:
+    name: Tlacuilo custody gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: tlacuilo-preview
+    steps:
+      - name: Enforce isolated branch and explicit authorization
+        shell: bash
+        env:
+          SELECTED_REF: ${{ github.ref }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+          MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "$REPOSITORY_PRIVATE" != "true" ]; then
+            echo "::error::Tlacuilo no ejecuta operaciones con secretos desde un repositorio público. Mueve el workflow revisado a un repositorio privado dedicado."
+            exit 1
+          fi
+          if [ "$SELECTED_REF" != "refs/heads/security/tlacuilo-executor" ]; then
+            echo "::error::Tlacuilo sólo puede ejecutarse desde security/tlacuilo-executor."
+            exit 1
+          fi
+          case "$MODE" in
+            preflight) ;;
+            execute)
+              if [ "$CONFIRMATION" != "CREATE_RELATION_5_6_ONCE" ]; then
+                echo "::error::La ejecución requiere la confirmación exacta CREATE_RELATION_5_6_ONCE."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Modo de ejecución desconocido."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout only the reviewed Tlacuilo branch
+        uses: actions/checkout@v4
+        with:
+          ref: security/tlacuilo-executor
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Test the one-shot runner guards
+        run: node --test tests/semantic-relation-smoke.test.mjs tests/tlacuilo-preflight.test.mjs tests/tlacuilo-custody.test.mjs
+
+      - name: Validate syntax
+        run: |
+          node --check scripts/tlacuilo-custody.mjs
+          node --check scripts/tlacuilo-preflight.mjs
+          node --check scripts/semantic-relation-smoke.mjs
+          node --check arkhe-core-client.js
+
+      - name: Read-only preflight gate (always before any execution)
+        env:
+          SUPABASE_URL: https://xbdbdwfzcuqqudrbapom.supabase.co
+          SUPABASE_KEY: ${{ secrets.TLACUILO_SUPABASE_READ_KEY }}
+        run: node scripts/tlacuilo-preflight.mjs
+
+      - name: Execute the approved one-shot proposal
+        if: inputs.mode == 'execute'
+        env:
+          ARKHE_ENABLE_SEMANTIC_RELATION_SMOKE: ${{ inputs.confirmation == 'CREATE_RELATION_5_6_ONCE' && inputs.mode == 'execute' && 'CREATE_RELATION_5_6_ONCE' || '' }}
+          ARKHE_CORE_URL: https://arkhe-dashboard-git-security-tlacuilo-delegation-arkhe7.vercel.app/api/semantic-relations
+          ARKHE_SERVICE_ID: tlacuilo
+          ARKHE_SERVICE_PRIVATE_KEY: ${{ secrets.TLACUILO_SIGNING_PRIVATE_KEY }}
+          ARKHE_VERCEL_PROTECTION_BYPASS: ${{ secrets.TLACUILO_VERCEL_PROTECTION_BYPASS }}
+          SUPABASE_URL: https://xbdbdwfzcuqqudrbapom.supabase.co
+          SUPABASE_KEY: ${{ secrets.TLACUILO_SUPABASE_READ_KEY }}
+        run: node scripts/semantic-relation-smoke.mjs
