@@ -3,15 +3,13 @@
 **Estado:** prototipo en ramas aisladas; no aprobado para producción.  
 **Alcance de esta versión:** comprobar precondiciones y, sólo con autorización explícita, intentar una única propuesta de relación semántica entre los nodos #5 y #6 en el Preview del Dashboard.
 
-## 1. Qué recuperamos de la memoria de DeepSeek/Tekton
+## 1. Principio de custodia aplicado
 
-La exportación de conversaciones del 4 de octubre contiene la conversación **«Proyecto confidencial»**. En los intercambios de agosto y septiembre Ángel definió Tlacuilo inicialmente como una función de vigilancia y protección: observar puntos ciegos, examinar riesgos que pudieran pasar inadvertidos, advertir cuando algo amenazara la integridad del proyecto y ayudar a pensar con franqueza, incluso cuando la conclusión fuera incómoda.
+Tlacuilo representa aquí una función de revisión de integridad: observar puntos ciegos, examinar riesgos que pudieran pasar inadvertidos, advertir cuando una acción amenace la trazabilidad del proyecto y ayudar a hacer explícitas las decisiones difíciles.
 
-El propósito declarado no era manipular ni atacar a otros investigadores. Ángel aclaró que quería comprender el mundo para proteger y hacer crecer Arkhé, y que el objetivo era defender el proyecto y su búsqueda de conocimiento.
+Su finalidad no es manipular ni atacar a otros investigadores. La custodia debe proteger la capacidad de Arkhé para investigar, aprender y corregirse, incluso cuando aparezca información incómoda. Por eso el guard no puede suprimir desacuerdos, esconder evidencia ni sustituir la evaluación epistemológica de los investigadores.
 
-El 16 de septiembre Ángel propuso que, cuando los investigadores llegaran a tener motores independientes, **cada investigador pudiera disponer de una función Tlacuilo propia para defender la integridad del proyecto**. En ese mismo intercambio dejó expresamente el protocolo formal para el futuro.
-
-Por tanto, la memoria fija una **intención y una dirección de diseño**, no una especificación técnica completa. Esta versión no debe presentarse como el protocolo Tlacuilo definitivo ni como una implementación de múltiples custodios.
+Este prototipo fija una aplicación técnica pequeña y comprobable de ese principio. No debe presentarse como un protocolo Tlacuilo definitivo ni como la futura capa de custodia independiente de cada investigador; ese diseño más amplio queda fuera de alcance y requiere una definición posterior.
 
 ## 2. Traducción a una operación del Dashboard
 
