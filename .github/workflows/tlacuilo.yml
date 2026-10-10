@@ -81,8 +81,7 @@ jobs:
           node --check scripts/semantic-relation-smoke.mjs
           node --check arkhe-core-client.js
 
-      - name: Read-only preflight
-        if: inputs.mode == 'preflight'
+      - name: Read-only preflight gate (always before any execution)
         env:
           SUPABASE_URL: https://xbdbdwfzcuqqudrbapom.supabase.co
           SUPABASE_KEY: ${{ secrets.TLACUILO_SUPABASE_READ_KEY }}
