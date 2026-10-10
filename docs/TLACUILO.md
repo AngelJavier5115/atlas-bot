@@ -11,7 +11,28 @@ Su finalidad no es manipular ni atacar a otros investigadores. La custodia debe 
 
 Este prototipo fija una aplicación técnica pequeña y comprobable de ese principio. No debe presentarse como un protocolo Tlacuilo definitivo ni como la futura capa de custodia independiente de cada investigador; ese diseño más amplio queda fuera de alcance y requiere una definición posterior.
 
-## 2. Traducción a una operación del Dashboard
+## 2. Las cuatro funciones del prototipo
+
+### Observar
+Tlacuilo verifica la configuración permitida, lee el contenido exacto de los nodos #5 y #6, consulta ambas direcciones de relación y comprueba que el historial pueda leerse. Registra qué comprobaciones pasaron sin almacenar valores de secretos.
+
+### Proteger
+Si el destino es inesperado, cambia el contenido aprobado, existe ya una relación, no hay permisos de lectura suficientes o la autenticación falla, Tlacuilo bloquea la escritura. La política se vuelve a aplicar en la API: no depende sólo del ejecutor.
+
+### Corregir
+En este primer prototipo, corregir significa clasificar el problema y preparar una acción concreta y acotada. La corrección automática sólo debe habilitarse para tareas reversibles, no persistentes y permitidas por una lista explícita. En esta operación aún no hay correcciones automáticas autorizadas: cambiar destinos, claves, permisos, nodos, relaciones o afirmaciones requiere revisión humana.
+
+Ejemplos:
+- configuración ausente: indicar qué nombre de secreto falta, sin leer ni mostrar su valor;
+- destino incorrecto: recomendar la ruta aprobada, sin redirigir la petición automáticamente;
+- nodo cambiado: solicitar revisión de la propuesta, sin editar el nodo para hacerlo coincidir;
+- permiso insuficiente: pedir la capacidad mínima necesaria, sin elevar credenciales a una clave administrativa;
+- resultado ambiguo después del POST: reconciliar manualmente la relación y el historial, sin repetir la operación.
+
+### Rendir cuentas
+Cada ejecución emite un informe estructurado y un resumen de GitHub Actions con el resultado, la fase, la anomalía clasificada si la hay, la corrección recomendada, el estado de la escritura y si quedó verificada. No se guardan secretos ni el error bruto. Un resultado ambiguo queda marcado como desconocido y requiere reconciliación humana.
+
+## 3. Traducción a una operación del Dashboard
 
 Para la operación puntual de este prototipo, el principio de custodia se traduce en una compuerta técnica verificable:
 
