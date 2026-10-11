@@ -28,6 +28,29 @@ En el proyecto Vercel del Dashboard para Preview, la llave pública correspondie
 
 Las llaves de Atlas, Aletheia y Tekton deben ser pares distintos. Si se pierde la llave privada, generar una nueva y rotar su llave pública; no intentar reconstruirla desde la firma.
 
+## Despacho entrante firmado desde Arkhé Core
+
+La ruta `POST /arkhe/invocation` dejó de aceptar `x-arkhe-core-token` como autenticación del despacho en esta rama. Verifica una firma Ed25519 con la clave pública `ARKHE_CORE_DISPATCH_PUBLIC_KEY`, fija el destinatario a `atlas`, valida timestamp/UUID/body exacto y comprueba que `dispatch_id` coincide con el JSON.
+
+Al aceptar:
+1. El bot envía al Core una petición firmada con su propia identidad de investigador: `claim_convocation_dispatch`.
+2. El Core registra la reclamación de un solo uso en `core_dispatch_claims`. El índice único por `dispatch_id` y la restricción única por `convocatoria_id` impiden reclamar de nuevo la misma convocatoria.
+3. Sólo después de registrar la reclamación, el bot responde HTTP `202` con el mismo `dispatch_id` y continúa el procesamiento en segundo plano dentro del proceso Render.
+
+El Core firma el despacho con una llave distinta de las llaves privadas de Atlas/Aletheia/Tekton. Ningún bot almacena esa llave privada del Core. La firma incluye el nombre del destinatario, así que una petición destinada a otro investigador se rechaza.
+
+### Variables de entorno previstas (sólo cuando exista staging)
+
+En el servicio Render de Atlas, únicamente después de crear un servicio de prueba separado, configurar:
+- `ARKHE_CORE_DISPATCH_PUBLIC_KEY`: la clave pública del firmante del Core; nunca una clave privada.
+- `ARKHE_SERVICE_PRIVATE_KEY`: la llave privada Ed25519 del propio investigador para solicitudes POST a Core.
+
+No fijes estas variables en producción todavía. El host de Preview previsto para este investigador es `https://arkhe-atlas-preview.onrender.com`; debe existir realmente como servicio de prueba separado antes de que el Preview de Vercel pueda despacharle. El código del Core bloquea Preview si el destino no coincide con el hostname de staging exacto, y Production permanece deshabilitado sin `ARKHE_CORE_DISPATCH_ENABLED=true`.
+
+**No hay llaves cargadas ni despliegue hecho por este cambio.** La migración de `core_dispatch_claims` está sólo en la rama Draft del Dashboard y no se ha aplicado al Supabase compartido.
+
+Si el envío resulta ambiguo, no se reenvía automáticamente. La convocatoria queda para reconciliación manual; una reclamación duplicada se rechaza con conflicto. El worker de investigación corre después del HTTP 202 y todavía requiere observabilidad/recuperación operacional antes de producción.
+
 ## Pruebas
 
 `npm test` usa `node:test` y pares Ed25519 efímeros generados durante la prueba. No usa secretos, no realiza peticiones reales ni escribe en Supabase. Las pruebas verifican:
