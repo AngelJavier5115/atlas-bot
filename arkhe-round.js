@@ -139,15 +139,18 @@ export async function generarPerspectivaAtlas({
   openai,
   atlasId,
   convocatoriaId,
+  dispatchId,
   maxOutputTokens = 1800
 }) {
   if (!openai) throw new Error('Motor de Atlas no configurado.');
   if (!atlasId) throw new Error('atlasId es obligatorio.');
   if (!convocatoriaId) throw new Error('convocatoriaId es obligatorio.');
+  if (!dispatchId) throw new Error('La ejecución requiere un dispatch_id firmado por Arkhé Core.');
 
   const convocatoria = await coreRequest({
     action: 'obtener_convocatoria',
-    convocatoria_id: convocatoriaId
+    convocatoria_id: convocatoriaId,
+    dispatch_id: dispatchId
   });
 
   if (convocatoria.convocatoria.investigador_id !== atlasId) {
@@ -343,6 +346,7 @@ export async function generarPerspectivaAtlas({
   const persistida = await coreRequest({
     action: 'completar_convocatoria',
     convocatoria_id: convocatoriaId,
+    dispatch_id: dispatchId,
     ronda_id: convocatoria.ronda.id,
     investigador_id: atlasId,
     tipo: 'perspectiva',
@@ -370,8 +374,8 @@ export async function generarPerspectivaAtlas({
 
 const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
 
-export async function ejecutarConvocatoria({ convocatoriaId, responder = true, openai, ai }) {
-  const resultado = await generarPerspectivaAtlas({ openai, atlasId: ATLAS_ID, convocatoriaId });
+export async function ejecutarConvocatoria({ convocatoriaId, dispatchId, responder = true, openai, ai }) {
+  const resultado = await generarPerspectivaAtlas({ openai, atlasId: ATLAS_ID, convocatoriaId, dispatchId });
   return resultado;
 }
 
