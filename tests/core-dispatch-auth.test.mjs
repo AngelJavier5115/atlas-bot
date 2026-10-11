@@ -91,3 +91,21 @@ test('Atlas fails closed without a configured dispatch public key', () => {
     now: sample.timestamp
   }), /ARKHE_CORE_DISPATCH_PUBLIC_KEY no está configurado/);
 });
+
+
+test('Atlas HTTP receiver verifies, claims, and acknowledges before running research', async () => {
+  const { readFileSync } = await import('node:fs');
+  const index = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const routeStart = index.indexOf("if (req.method !== 'POST' || req.url !== '/arkhe/invocation')");
+  const routeEnd = index.indexOf("\\nserver.listen(PORT", routeStart);
+  assert.ok(routeStart >= 0 && routeEnd > routeStart, 'signed dispatch route bounds must exist');
+  const route = index.slice(routeStart, routeEnd);
+
+  assert.match(route, /authenticateCoreDispatch/);
+  assert.match(route, /claim_convocation_dispatch/);
+  assert.match(route, /res\.writeHead\(202/);
+  assert.match(route, /setImmediate/);
+  assert.doesNotMatch(route, /x-arkhe-core-token|autorizadoCore/);
+  assert.ok(route.indexOf('claim_convocation_dispatch') < route.indexOf('res.writeHead(202'));
+  assert.ok(route.indexOf('res.writeHead(202') < route.indexOf('setImmediate'));
+});
