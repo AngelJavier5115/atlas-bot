@@ -5,7 +5,8 @@ export const CORE_SERVICE_ID = 'atlas';
 const INVESTIGATOR_ACTIONS = new Set([
   'obtener_convocatoria',
   'completar_convocatoria',
-  'fallar_convocatoria'
+  'fallar_convocatoria',
+  'claim_convocation_dispatch'
 ]);
 
 function normalizePrivateKeyPem(value) {
