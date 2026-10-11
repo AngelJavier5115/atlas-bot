@@ -32,3 +32,8 @@ jobs:
           node-version: 22
       - name: Run signature tests
         run: npm test
+      - name: Syntax-check staged bot adapters
+        run: |
+          for file in arkhe-core-client.js arkhe-round-command.js arkhe-operator-command.js arkhe-round.js index.js; do
+            if [ -f "$file" ]; then node --check "$file"; fi
+          done
