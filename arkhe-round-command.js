@@ -1,52 +1,27 @@
 // ============================================================
 // ARKHÉ — CUERPO DISCORD DE ATLAS
 // ============================================================
-// Discord solo transporta la orden humana hacia Arkhé Core.
-// La creación, numeración y gobierno de rondas ya no viven aquí.
+// La investigación sólo comienza mediante un despacho firmado de
+// Arkhé Core después de autorización humana WebAuthn. Un comando de
+// Discord con una UUID no es un despacho ni una autorización.
 // ============================================================
 
-import {
-  generarPerspectivaAtlas,
-  formatearPerspectivaDiscord
-} from './arkhe-round.js';
-
 export const ATLAS_ROUND_COMMAND_NAME = 'atlas-convocatoria';
-
-const ATLAS_ID = '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f';
 
 export function crearComandoAtlasRonda(SlashCommandBuilder) {
   return new SlashCommandBuilder()
     .setName(ATLAS_ROUND_COMMAND_NAME)
-    .setDescription('Atlas: procesa una convocatoria existente autorizada por Arkhé Core')
+    .setDescription('Ejecución directa bloqueada: las convocatorias deben llegar mediante despacho firmado de Arkhé Core.')
     .addStringOption(option => option
       .setName('convocatoria_id')
-      .setDescription('UUID de una convocatoria pendiente asignada a Atlas')
+      .setDescription('UUID informativo de la convocatoria (no la ejecuta)')
       .setRequired(true));
 }
 
-export async function ejecutarAtlasRonda({
-  interaction,
-  openai,
-  responderLargo
-}) {
-  const convocatoriaId = interaction.options.getString('convocatoria_id', true);
-
-  try {
-    const resultado = await generarPerspectivaAtlas({
-      openai,
-      atlasId: '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f',
-      convocatoriaId
-    });
-
-    return await responderLargo(
-      interaction,
-      formatearPerspectivaDiscord(resultado)
-    );
-  } catch (error) {
-    console.error('[Atlas] Error en convocatoria:', error);
-    return await interaction.editReply(
-      '[Atlas] ❌ Arkhé Core no pudo completar la convocatoria ' + convocatoriaId + '.\\n\\n' +
-      'Motivo: ' + (error?.message || 'error desconocido')
-    );
-  }
+export async function ejecutarAtlasRonda({ interaction }) {
+  return await interaction.editReply(
+    '⛔ **Atlas — ejecución directa deshabilitada.**\\n\\n' +
+    'Una convocatoria sólo puede procesarse después de recibir un despacho firmado, de un solo uso, emitido por Arkhé Core con autorización humana reciente. ' +
+    'Este comando no ejecutó el motor ni contactó al Core.'
+  );
 }
