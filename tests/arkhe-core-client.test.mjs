@@ -88,3 +88,35 @@ test('signed POST refuses a non-Ed25519 key', () => {
     /debe ser una llave Ed25519/
   );
 });
+
+
+test('atlas signed client rejects human-governance actions before network access', async () => {
+  const previousUrl = process.env.ARKHE_CORE_URL;
+  const previousFetch = globalThis.fetch;
+  let networkCalls = 0;
+  process.env.ARKHE_CORE_URL = 'https://core.example.invalid/api/arkhe-core';
+  globalThis.fetch = async () => {
+    networkCalls += 1;
+    throw new Error('Network access must not occur for human-governance actions.');
+  };
+
+  try {
+    for (const action of [
+      'iniciar_ronda',
+      'convocar_investigadores',
+      'abrir_debate',
+      'pausar_ronda',
+      'cerrar_ronda',
+      'cancelar_ronda'
+    ]) {
+      await assert.rejects(
+        coreRequest({ action, actor_id: '2a003935-f248-442c-96fc-dcee29c4d41a' }),
+        /requiere autorización humana/
+      );
+    }
+    assert.equal(networkCalls, 0);
+  } finally {
+    restoreEnv('ARKHE_CORE_URL', previousUrl);
+    globalThis.fetch = previousFetch;
+  }
+});
