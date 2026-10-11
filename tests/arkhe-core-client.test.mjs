@@ -132,3 +132,47 @@ test('Atlas Discord researcher command consumes an existing invocation, not gove
   assert.match(operator, /requiere la sesión humana WebAuthn/);
   assert.doesNotMatch(operator, /coreRequest|x-arkhe-core-token|action:\s*'iniciar_ronda'/);
 });
+
+
+test('Atlas may submit a signed one-shot dispatch claim only as its fixed service identity', async () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const privateKeyPem = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
+  const previousUrl = process.env.ARKHE_CORE_URL;
+  const previousPrivateKey = process.env.ARKHE_SERVICE_PRIVATE_KEY;
+  const previousFetch = globalThis.fetch;
+  let captured;
+
+  process.env.ARKHE_CORE_URL = 'https://core.example.invalid/api/arkhe-core';
+  process.env.ARKHE_SERVICE_PRIVATE_KEY = privateKeyPem;
+  globalThis.fetch = async (url, init) => {
+    captured = { url, init };
+    return { ok: true, status: 200, json: async () => ({ ok: true, dispatch: { status: 'claimed' } }) };
+  };
+
+  const body = {
+    action: 'claim_convocation_dispatch',
+    convocatoria_id: '11111111-1111-4111-8111-111111111111',
+    dispatch_id: '22222222-2222-4222-8222-222222222222'
+  };
+
+  try {
+    const result = await coreRequest(body);
+    assert.equal(result.dispatch.status, 'claimed');
+    assert.equal(captured.init.headers['x-arkhe-service-id'], CORE_SERVICE_ID);
+    assert.equal(captured.init.headers['x-arkhe-core-token'], undefined);
+    assert.equal(captured.init.body, JSON.stringify(body));
+    const payload = buildSigningPayload({
+      timestamp: captured.init.headers['x-arkhe-timestamp'],
+      nonce: captured.init.headers['x-arkhe-nonce'],
+      serializedBody: captured.init.body
+    });
+    assert.equal(
+      verify(null, Buffer.from(payload), publicKey, Buffer.from(captured.init.headers['x-arkhe-signature'], 'base64url')),
+      true
+    );
+  } finally {
+    restoreEnv('ARKHE_CORE_URL', previousUrl);
+    restoreEnv('ARKHE_SERVICE_PRIVATE_KEY', previousPrivateKey);
+    globalThis.fetch = previousFetch;
+  }
+});
