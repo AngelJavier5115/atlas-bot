@@ -10,6 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import http from 'http';
 import { ejecutarConvocatoria } from './arkhe-round.js';
+import { coreRequest } from './arkhe-core-client.js';
+import { authenticateCoreDispatch } from './core-dispatch-auth.js';
 import { registrarEvaluacion } from './arkhe-evaluation.js';
 import { registrarProduccion } from './arkhe-production.js';
 import { ejecutarAtlasRonda, crearComandoAtlasRonda, ATLAS_ROUND_COMMAND_NAME } from './arkhe-round-command.js';
@@ -24,56 +26,114 @@ const PORT = process.env.PORT || 3000;
 function leerJsonRequest(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
-    req.on('data', chunk => { raw += chunk; });
+    req.on('data', chunk => {
+      raw += chunk;
+      if (raw.length > 16384) {
+        const error = new Error('El cuerpo del despacho excede el límite permitido.');
+        error.status = 413;
+        reject(error);
+        req.destroy();
+      }
+    });
     req.on('end', () => {
-      try { resolve(raw ? JSON.parse(raw) : {}); }
-      catch (error) { reject(error); }
+      try {
+        resolve({ body: raw ? JSON.parse(raw) : {}, raw });
+      } catch {
+        const error = new Error('El cuerpo del despacho no contiene JSON válido.');
+        error.status = 400;
+        reject(error);
+      }
     });
     req.on('error', reject);
   });
 }
 
-function autorizadoCore(req) {
-  const esperado = process.env.ARKHE_CORE_TOKEN;
-  const recibido = req.headers['x-arkhe-core-token'];
-  return Boolean(esperado && recibido && recibido === esperado);
+function esErrorTransitorio(error) {
+  const status = Number(error?.status ?? error?.error?.code ?? 0);
+  const message = String(error?.message ?? error ?? '').toUpperCase();
+  return status === 408 ||
+    status === 429 ||
+    (status >= 500 && status <= 599) ||
+    ['UNAVAILABLE', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'TIMEOUT'].some(part => message.includes(part));
+}
+
+async function procesarDespachoAceptado({ body, convocatoriaId }) {
+  try {
+    const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
+    const contenidoPublicable =
+      resultado?.resultado?.contenido ??
+      resultado?.intervencion?.contenido ??
+      resultado?.contenido ??
+      'Intervención registrada.';
+    await publicarConvocatoriaEnDiscord(body, contenidoPublicable);
+  } catch (error) {
+    console.error('[Atlas] Error procesando despacho aceptado:', error);
+    if (!esErrorTransitorio(error)) {
+      try {
+        await coreRequest({
+          action: 'fallar_convocatoria',
+          convocatoria_id: convocatoriaId,
+          investigador_id: '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f'
+        });
+      } catch (failureError) {
+        console.error('[Atlas] No se pudo registrar el fallo en Arkhé Core:', failureError);
+      }
+    }
+  }
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('Atlas Bot is active!\n');
+    return res.end('Atlas Bot is active!\\n');
   }
 
-  if (req.method === 'POST' && req.url === '/arkhe/invocation') {
-    if (!autorizadoCore(req)) {
-      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: false, error: 'No autorizado.' }));
-    }
-
-    try {
-      const body = await leerJsonRequest(req);
-      const convocatoriaId = body?.convocatoria_id;
-      if (!convocatoriaId) throw new Error('convocatoria_id es obligatorio.');
-      const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
-      const contenidoPublicable =
-        resultado?.resultado?.contenido ??
-        resultado?.intervencion?.contenido ??
-        resultado?.contenido ??
-        'Intervención registrada.';
-      await publicarConvocatoriaEnDiscord(body, contenidoPublicable);
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: true, ...resultado }));
-    } catch (error) {
-      console.error('[Atlas] Error ejecutando convocatoria:', error);
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ ok: false, error: error?.message || 'Error interno.' }));
-    }
+  if (req.method !== 'POST' || req.url !== '/arkhe/invocation') {
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ ok: false, error: 'Ruta no encontrada.' }));
   }
 
-  res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify({ ok: false, error: 'Ruta no encontrada.' }));
+  try {
+    const parsed = await leerJsonRequest(req);
+    const dispatch = authenticateCoreDispatch({
+      headers: req.headers,
+      serializedBody: parsed.raw
+    });
+
+    await coreRequest({
+      action: 'claim_convocation_dispatch',
+      convocatoria_id: dispatch.convocatoriaId,
+      dispatch_id: dispatch.dispatchId
+    });
+
+    res.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      ok: true,
+      accepted: true,
+      dispatch_id: dispatch.dispatchId
+    }));
+
+    // Render acknowledges quickly; the long-running research work continues
+    // in the service process. The signed dispatch is one-shot and never retried
+    // automatically after an ambiguous result.
+    setImmediate(() => {
+      void procesarDespachoAceptado({
+        body: dispatch.body,
+        convocatoriaId: dispatch.convocatoriaId
+      });
+    });
+    return;
+  } catch (error) {
+    console.error('[Atlas] Despacho rechazado:', error);
+    const status = Number(error?.status) || 500;
+    if (!res.headersSent) {
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        ok: false,
+        error: error?.message || 'No se pudo aceptar el despacho.'
+      }));
+    }
+  }
 });
 
 server.listen(PORT, () => {
