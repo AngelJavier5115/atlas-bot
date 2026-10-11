@@ -2,6 +2,12 @@ import { createHash, createPrivateKey, randomUUID, sign } from 'node:crypto';
 
 export const CORE_SERVICE_ID = 'atlas';
 
+const INVESTIGATOR_ACTIONS = new Set([
+  'obtener_convocatoria',
+  'completar_convocatoria',
+  'fallar_convocatoria'
+]);
+
 function normalizePrivateKeyPem(value) {
   return String(value).replace(/\\n/g, '\n').trim();
 }
@@ -63,10 +69,20 @@ export function buildServiceAuthHeaders(serializedBody, {
 export async function coreRequest(payload) {
   const url = process.env.ARKHE_CORE_URL;
   if (!url) throw new Error('ARKHE_CORE_URL no está configurado.');
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new TypeError('La petición de Arkhé Core debe ser un objeto JSON.');
+  }
+  if (!INVESTIGATOR_ACTIONS.has(payload.action)) {
+    throw new Error(
+      'La acción "' + String(payload.action ?? 'desconocida') +
+      '" requiere autorización humana y no está permitida para el servicio ' +
+      CORE_SERVICE_ID + '. Usa el flujo de gobierno humano WebAuthn de Arkhé Core.'
+    );
+  }
 
   // Sign the exact JSON bytes that will be posted; do not fall back to the
   // shared bearer token if the service's private signing key is unavailable.
-  const serializedBody = JSON.stringify(payload ?? {});
+  const serializedBody = JSON.stringify(payload);
   const authHeaders = buildServiceAuthHeaders(serializedBody);
   const response = await fetch(url, {
     method: 'POST',
