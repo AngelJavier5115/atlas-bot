@@ -57,9 +57,9 @@ function esErrorTransitorio(error) {
     ['UNAVAILABLE', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'TIMEOUT'].some(part => message.includes(part));
 }
 
-async function procesarDespachoAceptado({ body, convocatoriaId }) {
+async function procesarDespachoAceptado({ body, dispatchId, convocatoriaId }) {
   try {
-    const resultado = await ejecutarConvocatoria({ convocatoriaId, openai });
+    const resultado = await ejecutarConvocatoria({ convocatoriaId, dispatchId, openai });
     const contenidoPublicable =
       resultado?.resultado?.contenido ??
       resultado?.intervencion?.contenido ??
@@ -73,6 +73,7 @@ async function procesarDespachoAceptado({ body, convocatoriaId }) {
         await coreRequest({
           action: 'fallar_convocatoria',
           convocatoria_id: convocatoriaId,
+          dispatch_id: dispatchId,
           investigador_id: '6deb143d-17c4-4d1a-a2d2-1fd9ddf2853f'
         });
       } catch (failureError) {
@@ -119,6 +120,7 @@ const server = http.createServer(async (req, res) => {
     setImmediate(() => {
       void procesarDespachoAceptado({
         body: dispatch.body,
+        dispatchId: dispatch.dispatchId,
         convocatoriaId: dispatch.convocatoriaId
       });
     });
