@@ -79,7 +79,7 @@ export function authenticateCoreDispatch({
   }
   if (body.discord_channel_id != null &&
       (typeof body.discord_channel_id !== 'string' ||
-       !/^\\d{17,20}$/.test(body.discord_channel_id))) {
+       !/^[0-9]{17,20}$/.test(body.discord_channel_id))) {
     throw dispatchError('discord_channel_id no es válido.', 400);
   }
 
