@@ -774,4 +774,8 @@ ${nodo.contenido}
 // LOGIN
 // ============================================================
 
-client.login(process.env.DISCORD_TOKEN);
+if (process.env.ARKHE_A4_PREVIEW_NO_DISCORD === 'true') {
+  console.log('[Atlas] Preview A.4: Discord gateway disabled; no commands registered.');
+} else {
+  client.login(process.env.DISCORD_TOKEN);
+}
