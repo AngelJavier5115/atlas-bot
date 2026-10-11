@@ -1,0 +1,34 @@
+name: A.4 Signed Core Client
+
+on:
+  push:
+    branches:
+      - security/a4-signed-core-client
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a4-signed-core-client-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-client-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Run signature tests
+        run: npm test
