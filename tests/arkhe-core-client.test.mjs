@@ -120,3 +120,15 @@ test('atlas signed client rejects human-governance actions before network access
     globalThis.fetch = previousFetch;
   }
 });
+
+
+test('Atlas Discord researcher command consumes an existing invocation, not governance', async () => {
+  const { readFileSync } = await import('node:fs');
+  const command = readFileSync(new URL('../arkhe-round-command.js', import.meta.url), 'utf8');
+  const operator = readFileSync(new URL('../arkhe-operator-command.js', import.meta.url), 'utf8');
+
+  assert.match(command, /convocatoria_id/);
+  assert.doesNotMatch(command, /coreRequest|iniciar_ronda|convocar_investigadores/);
+  assert.match(operator, /requiere la sesión humana WebAuthn/);
+  assert.doesNotMatch(operator, /coreRequest|x-arkhe-core-token|action:\s*'iniciar_ronda'/);
+});
