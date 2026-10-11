@@ -97,7 +97,7 @@ test('Atlas HTTP receiver verifies, claims, and acknowledges before running rese
   const { readFileSync } = await import('node:fs');
   const index = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   const routeStart = index.indexOf("if (req.method !== 'POST' || req.url !== '/arkhe/invocation')");
-  const routeEnd = index.indexOf("\\nserver.listen(PORT", routeStart);
+  const routeEnd = index.indexOf('server.listen(PORT', routeStart);
   assert.ok(routeStart >= 0 && routeEnd > routeStart, 'signed dispatch route bounds must exist');
   const route = index.slice(routeStart, routeEnd);
 
