@@ -6,7 +6,8 @@ const INVESTIGATOR_ACTIONS = new Set([
   'obtener_convocatoria',
   'completar_convocatoria',
   'fallar_convocatoria',
-  'claim_convocation_dispatch'
+  'claim_convocation_dispatch',
+  'diagnosticar_conexion'
 ]);
 
 function normalizePrivateKeyPem(value) {
