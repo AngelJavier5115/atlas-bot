@@ -126,7 +126,13 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   } catch (error) {
-    console.error('[Atlas] Despacho rechazado:', error);
+    // Safe diagnostics only: never log request bodies, signatures, nonces or key material.
+    console.error('[Atlas] Despacho rechazado:', JSON.stringify({
+      stage: error?.status ? 'core-claim' : 'dispatch-validation-or-network',
+      status: Number(error?.status) || 500,
+      code: typeof error?.code === 'string' ? error.code : null,
+      message: typeof error?.message === 'string' ? error.message : 'Error sin mensaje legible.'
+    }));
     const status = Number(error?.status) || 500;
     if (!res.headersSent) {
       res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
