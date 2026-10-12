@@ -83,8 +83,47 @@ async function procesarDespachoAceptado({ body, dispatchId, convocatoriaId }) {
   }
 }
 
+let lastCoreDiagnosticAt = 0;
+
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET') {
+    if (req.url === '/arkhe/diagnostics/core-auth') {
+      // This bounded, read-only probe is available only in the Discord-disabled Preview service.
+      if (process.env.ARKHE_A4_PREVIEW_NO_DISCORD !== 'true') {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ ok: false, error: 'Ruta no encontrada.' }));
+      }
+      const now = Date.now();
+      if (now - lastCoreDiagnosticAt < 30000) {
+        res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ ok: false, error: 'Diagnóstico limitado; espera 30 segundos.' }));
+      }
+      lastCoreDiagnosticAt = now;
+      try {
+        const result = await coreRequest({ action: 'diagnosticar_conexion' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({
+          ok: true,
+          diagnostic: result?.diagnostic ?? 'signed_service_authentication',
+          authenticated: result?.authenticated === true,
+          service_id: result?.service_id ?? 'atlas'
+        }));
+      } catch (error) {
+        const safe = {
+          status: Number(error?.status) || 500,
+          code: typeof error?.code === 'string' ? error.code : null,
+          message: typeof error?.message === 'string' ? error.message : 'Error sin mensaje legible.'
+        };
+        console.error('[Atlas] Diagnóstico Core falló:', JSON.stringify(safe));
+        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({
+          ok: false,
+          diagnostic: 'signed_service_authentication',
+          upstream_status: safe.status,
+          error: 'Core no confirmó el diagnóstico firmado. Revisa los logs de Preview.'
+        }));
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Atlas Bot is active!\\n');
   }
