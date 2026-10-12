@@ -102,7 +102,18 @@ export async function coreRequest(payload) {
   }
 
   if (!response.ok || data?.ok === false) {
-    throw new Error(data?.error || `Arkhe Core respondió HTTP ${response.status}.`);
+    const rawError = data?.error;
+    const message = typeof rawError === 'string'
+      ? rawError
+      : rawError && typeof rawError === 'object'
+        ? (typeof rawError.message === 'string' ? rawError.message
+          : typeof rawError.code === 'string' ? rawError.code
+          : 'Core devolvió un objeto de error sin mensaje legible.')
+        : `Arkhe Core respondió HTTP ${response.status}.`;
+    const error = new Error(message);
+    error.status = response.status;
+    if (typeof rawError?.code === 'string') error.code = rawError.code;
+    throw error;
   }
 
   return data;
