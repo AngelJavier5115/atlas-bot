@@ -68,6 +68,35 @@ export function buildServiceAuthHeaders(serializedBody, {
   };
 }
 
+export function buildCoreProtectionHeaders({
+  url = process.env.ARKHE_CORE_URL,
+  bypassSecret = process.env.ARKHE_VERCEL_PREVIEW_BYPASS_SECRET,
+  previewMode = process.env.ARKHE_A4_PREVIEW_NO_DISCORD
+} = {}) {
+  if (previewMode !== 'true' || typeof bypassSecret !== 'string' || !bypassSecret.trim()) {
+    return {};
+  }
+
+  let target;
+  try {
+    target = new URL(url);
+  } catch {
+    return {};
+  }
+
+  // Never send a deployment-protection bypass to arbitrary URLs or production.
+  if (
+    target.protocol !== 'https:' ||
+    target.hostname !== 'arkhe-dashboard-git-security-a4-idempotent-completion-arkhe7.vercel.app' ||
+    target.pathname !== '/api/arkhe-core' ||
+    target.search !== ''
+  ) {
+    return {};
+  }
+
+  return { 'x-vercel-protection-bypass': bypassSecret.trim() };
+}
+
 export async function coreRequest(payload) {
   const url = process.env.ARKHE_CORE_URL;
   if (!url) throw new Error('ARKHE_CORE_URL no está configurado.');
@@ -90,6 +119,7 @@ export async function coreRequest(payload) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...buildCoreProtectionHeaders({ url }),
       ...authHeaders
     },
     body: serializedBody
