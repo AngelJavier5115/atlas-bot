@@ -8,6 +8,7 @@ import {
 
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { inspectModelConfiguration } from './model-readiness.js';
 import http from 'http';
 import { ejecutarConvocatoria } from './arkhe-round.js';
 import { coreRequest } from './arkhe-core-client.js';
@@ -84,6 +85,7 @@ async function procesarDespachoAceptado({ body, dispatchId, convocatoriaId }) {
 }
 
 let lastCoreDiagnosticAt = 0;
+let lastModelReadinessAt = 0;
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET') {
@@ -123,6 +125,34 @@ const server = http.createServer(async (req, res) => {
           error: 'Core no confirmó el diagnóstico firmado. Revisa los logs de Preview.'
         }));
       }
+    }
+    if (req.url === '/arkhe/diagnostics/model-readiness') {
+      // Preview-only, read-only configuration check. It never calls the model provider.
+      if (process.env.ARKHE_A4_PREVIEW_NO_DISCORD !== 'true') {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ ok: false, error: 'Ruta no encontrada.' }));
+      }
+      const now = Date.now();
+      if (now - lastModelReadinessAt < 30000) {
+        res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ ok: false, error: 'Diagnóstico limitado; espera 30 segundos.' }));
+      }
+      lastModelReadinessAt = now;
+
+      const readiness = inspectModelConfiguration({
+        openRouterApiKey: process.env.OPENROUTER_API_KEY,
+        openAiApiKey: process.env.OPENAI_API_KEY,
+        openRouterModel: process.env.OPENROUTER_MODEL,
+        openAiModel: process.env.OPENAI_MODEL
+      });
+      const status = readiness.configured ? 200 : 503;
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify({
+        ok: readiness.configured,
+        diagnostic: 'model_readiness',
+        ...readiness,
+        note: 'Sólo se comprueba la presencia de configuración; no se llamó al proveedor ni se validó la clave.'
+      }));
     }
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Atlas Bot is active!\\n');
