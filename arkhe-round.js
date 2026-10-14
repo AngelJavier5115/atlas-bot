@@ -7,6 +7,7 @@
 // ============================================================
 
 import { coreRequest } from './arkhe-core-client.js';
+import { buildAtlasModelCandidates } from './model-routing.js';
 
 function textoSeguro(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
@@ -159,12 +160,11 @@ export async function generarPerspectivaAtlas({
 
   const prompt = construirPromptAtlas(convocatoria);
 
-  const modeloPrincipal = process.env.OPENROUTER_MODEL || process.env.OPENAI_MODEL || 'openai/gpt-oss-20b';
-  const modelos = [...new Set([
-    modeloPrincipal,
-    'openai/gpt-oss-20b',
-    'openai/gpt-oss-120b:free'
-  ].filter(Boolean))];
+  const modelos = buildAtlasModelCandidates({
+    openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),
+    openRouterModel: process.env.OPENROUTER_MODEL,
+    openAiModel: process.env.OPENAI_MODEL,
+  });
 
   let respuesta = null;
   let texto = '';

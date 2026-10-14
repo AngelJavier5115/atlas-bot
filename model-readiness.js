@@ -14,12 +14,21 @@ export function inspectModelConfiguration({
       : 'none';
 
   const configured = provider !== 'none';
-  const model = openRouterModel || openAiModel || 'openai/gpt-oss-20b';
+  const requestedOpenRouterModel = typeof openRouterModel === 'string' ? openRouterModel.trim() : '';
+  const isExplicitlyFreeOpenRouterModel =
+    requestedOpenRouterModel === 'openrouter/free' ||
+    (requestedOpenRouterModel.includes('/') && requestedOpenRouterModel.endsWith(':free'));
+  const model = provider === 'openrouter'
+    ? (isExplicitlyFreeOpenRouterModel ? requestedOpenRouterModel : 'openrouter/free')
+    : provider === 'openai-compatible'
+      ? (typeof openAiModel === 'string' && openAiModel.trim() ? openAiModel.trim() : 'openai/gpt-oss-20b')
+      : null;
 
   return {
     configured,
     provider,
-    model: configured ? model : null,
+    model,
+    ...(provider === 'openrouter' ? { routing_policy: 'free-models-only' } : {}),
     check: 'environment-variable-presence-only',
   };
 }

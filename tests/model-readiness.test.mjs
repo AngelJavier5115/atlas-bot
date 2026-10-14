@@ -7,11 +7,13 @@ test('Model readiness identifies OpenRouter without exposing the configured key'
   const result = inspectModelConfiguration({
     openRouterApiKey: 'synthetic-secret-value',
     openRouterModel: 'openai/gpt-oss-20b',
+    openAiModel: 'gpt-6-astra',
   });
   assert.deepEqual(result, {
     configured: true,
     provider: 'openrouter',
-    model: 'openai/gpt-oss-20b',
+    model: 'openrouter/free',
+    routing_policy: 'free-models-only',
     check: 'environment-variable-presence-only',
   });
   assert.equal(JSON.stringify(result).includes('synthetic-secret-value'), false);
